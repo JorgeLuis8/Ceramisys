@@ -3,126 +3,93 @@
 import { useState } from 'react';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import Image from 'next/image';
-import { 
-  Package, 
-  Banknote, 
-  ShoppingCart, 
-  CheckCircle, 
-  ShieldCheck, 
-  Users, 
-  FileText, 
-  Boxes 
-} from 'lucide-react';
 
 // ==================================================================
-// 1. PÁGINA INICIAL (VISÃO GERAL) - IDENTIDADE CERAMISYS
+// 1. PÁGINA INICIAL (VISÃO GERAL)
 // ==================================================================
 
 const OverviewLayout = ({ onChangeSection }) => {
   
-  // Dados dos Cards Principais
   const modules = [
     {
       id: 'inventory',
       title: 'Almoxarifado',
       description: 'Gestão Completa de Estoque',
       longDescription: 'Controle total de argila, lenha e produtos acabados. Rastreabilidade e gestão de perdas.',
-      icon: Package,
-      color: 'orange', // Mantém a cor da marca
-      features: [
-        'Entrada e saída de insumos',
-        'Controle de queima e produção',
-        'Relatórios de estoque mínimo'
-      ]
+      imageSrc: '/icons/inventory.png', 
+      color: 'orange',
+      features: ['Entrada e saída', 'Controle de queima', 'Estoque mínimo']
     },
     {
       id: 'finance',
       title: 'Financeiro',
       description: 'Fluxo de Caixa e Contas',
       longDescription: 'Controle preciso de contas a pagar, receber e fluxo de caixa diário da cerâmica.',
-      icon: Banknote,
-      color: 'gray', // Neutro/Profissional
-      features: [
-        'Contas a pagar e receber',
-        'Demonstrativo de Resultados (DRE)',
-        'Conciliação bancária'
-      ]
+      imageSrc: '/icons/finance.png',
+      color: 'gray',
+      features: ['Contas a pagar', 'DRE Gerencial', 'Conciliação']
     },
     {
       id: 'sales',
       title: 'Vendas',
       description: 'Pedidos e Clientes',
       longDescription: 'Gestão de pedidos de venda, carteira de clientes e expedição de cargas.',
-      icon: ShoppingCart,
-      color: 'gray', // Neutro/Profissional
-      features: [
-        'Emissão de pedidos',
-        'Tabela de preços dinâmica',
-        'Histórico de compras por cliente'
-      ]
+      imageSrc: '/icons/sales.png',
+      color: 'gray',
+      features: ['Emissão de pedidos', 'Tabela de preços', 'Histórico']
     }
   ];
 
-  // Dados do Rodapé
   const resources = [
-    { icon: Boxes, title: 'Produtos', value: 'Gestão Total' },
-    { icon: FileText, title: 'Relatórios', value: 'Gerenciais' },
-    { icon: Users, title: 'Acessos', value: 'Multi-nível' },
-    { icon: ShieldCheck, title: 'Dados', value: 'Seguros' },
+    { imageSrc: '/icons/box.png', title: 'Produtos', value: 'Ilimitados' },
+    { imageSrc: '/icons/report.png', title: 'Relatórios', value: 'Gerenciais' },
+    { imageSrc: '/icons/users.png', title: 'Acessos', value: 'Multi-nível' },
+    { imageSrc: '/icons/security.png', title: 'Dados', value: 'Seguros' },
   ];
 
-  // Mapeamento de cores (Focado na identidade Laranja CeramiSys)
   const colorMap = {
     orange: { 
-      bg: 'bg-orange-50', 
-      text: 'text-orange-600', 
-      border: 'border-orange-100', 
-      hoverBorder: 'hover:border-orange-300',
-      iconBg: 'bg-orange-100'
+      bg: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-100', hoverBorder: 'hover:border-orange-300', iconBg: 'bg-orange-100'
     },
     gray: { 
-      bg: 'bg-gray-50', 
-      text: 'text-gray-600', 
-      border: 'border-gray-200', 
-      hoverBorder: 'hover:border-orange-300', // Hover fica laranja para identidade
-      iconBg: 'bg-white border border-gray-100'
+      bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-200', hoverBorder: 'hover:border-orange-300', iconBg: 'bg-white border border-gray-100'
     }
   };
 
   return (
     <div className="space-y-6 animate-fade-in pb-10">
       
-      {/* BANNER SUPERIOR - LIMPO (BRANDING CERAMISYS) */}
-      <div className="relative w-full h-64 rounded-3xl overflow-hidden bg-white border border-gray-100 shadow-sm flex flex-col items-center justify-center text-center p-6">
+      {/* BANNER SUPERIOR - CLEAN / BRANCO */}
+      <div className="relative w-full h-80 rounded-3xl overflow-hidden bg-white border border-gray-100 shadow-sm flex flex-col items-center justify-center text-center p-6">
         
-        {/* Blobs Sutis de Fundo (Identidade Visual) */}
-        <div className="absolute top-[-50%] left-[-10%] w-96 h-96 bg-orange-100/50 rounded-full blur-3xl opacity-60 pointer-events-none"></div>
-        <div className="absolute bottom-[-50%] right-[-10%] w-96 h-96 bg-gray-100/50 rounded-full blur-3xl opacity-60 pointer-events-none"></div>
+        {/* Blobs de fundo sutis */}
+        <div className="absolute top-[-50%] left-[-10%] w-96 h-96 bg-orange-100/40 rounded-full blur-3xl opacity-60 pointer-events-none"></div>
+        <div className="absolute bottom-[-50%] right-[-10%] w-96 h-96 bg-gray-100/40 rounded-full blur-3xl opacity-60 pointer-events-none"></div>
 
-        <div className="relative z-10 flex flex-col items-center">
-          <div className="w-24 h-24 relative mb-4">
+        <div className="relative z-10 flex flex-col items-center animate-float">
+          
+          {/* LOGO PRINCIPAL */}
+          <div className="w-40 h-40 relative mb-4">
              <Image 
                src="/icons/logo.png" 
                alt="Logo CeramiSys" 
                fill 
-               className="object-contain" 
+               className="object-contain drop-shadow-xl" 
+               priority
              />
           </div>
           
-          <h1 className="text-4xl md:text-5xl font-black tracking-tight text-gray-900 mb-2">
+          <h1 className="text-5xl md:text-6xl font-black tracking-tight text-gray-900 mb-3">
             Cerami<span className="text-orange-600">Sys</span>
           </h1>
           
-          <p className="text-lg text-gray-500 max-w-2xl font-medium">
+          <p className="text-xl text-gray-500 max-w-2xl font-medium">
             Sistema Inteligente para Gestão de Indústrias Cerâmicas
           </p>
 
-          <div className="mt-6 flex gap-2">
-             <span className="px-3 py-1 bg-orange-50 text-orange-700 text-xs font-bold uppercase tracking-wide rounded-full border border-orange-100">
-               Versão 1.0
-             </span>
-             <span className="px-3 py-1 bg-green-50 text-green-700 text-xs font-bold uppercase tracking-wide rounded-full border border-green-100">
-               Online
+          <div className="mt-8 flex gap-3">
+             <span className="px-4 py-1.5 bg-orange-50 text-orange-700 text-xs font-bold uppercase tracking-wide rounded-full border border-orange-100 shadow-sm">
+               Painel Administrativo
              </span>
           </div>
         </div>
@@ -132,22 +99,22 @@ const OverviewLayout = ({ onChangeSection }) => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {modules.map((mod) => {
           const colors = colorMap[mod.color];
-          const Icon = mod.icon;
 
           return (
             <div 
               key={mod.id}
-              className={`bg-white rounded-3xl border-2 ${colors.border} shadow-sm p-8 transition-all cursor-pointer group ${colors.hoverBorder} hover:shadow-md hover:-translate-y-1 relative overflow-hidden`}
+              className={`bg-white rounded-3xl border-2 ${colors.border} shadow-sm p-8 transition-all cursor-pointer group ${colors.hoverBorder} hover:shadow-lg hover:-translate-y-1 relative overflow-hidden`}
               onClick={() => onChangeSection(mod.id)}
             >
-              {/* Efeito sutil no hover */}
-              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <Icon size={100} className={mod.color === 'orange' ? 'text-orange-500' : 'text-gray-400'} />
+              <div className="absolute -top-6 -right-6 w-32 h-32 opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none rotate-12">
+                <Image src={mod.imageSrc} alt="" fill className="object-contain" />
               </div>
 
               <div className="relative z-10">
-                <div className={`w-14 h-14 ${colors.iconBg} rounded-2xl flex items-center justify-center mb-6 text-gray-700 shadow-sm group-hover:scale-110 transition-transform duration-300`}>
-                  <Icon size={28} className={mod.color === 'orange' ? 'text-orange-600' : 'text-gray-600'} strokeWidth={2} />
+                <div className={`w-16 h-16 ${colors.iconBg} rounded-2xl flex items-center justify-center mb-6 shadow-sm group-hover:scale-110 transition-transform duration-300 relative`}>
+                  <div className="w-10 h-10 relative">
+                    <Image src={mod.imageSrc} alt={mod.title} fill className="object-contain" />
+                  </div>
                 </div>
                 
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">{mod.title}</h3>
@@ -180,11 +147,10 @@ const OverviewLayout = ({ onChangeSection }) => {
       {/* RODAPÉ INFORMATIVO */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {resources.map((res, idx) => {
-          const Icon = res.icon;
           return (
-            <div key={idx} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
-              <div className="p-3 bg-gray-50 rounded-xl text-gray-400">
-                <Icon size={24} />
+            <div key={idx} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 hover:border-orange-200 transition-colors">
+              <div className="p-3 bg-gray-50 rounded-xl relative w-12 h-12 flex-shrink-0">
+                <Image src={res.imageSrc} alt={res.title} fill className="object-contain p-1 opacity-70" />
               </div>
               <div>
                 <p className="text-xs text-gray-400 font-bold uppercase">{res.title}</p>
@@ -200,36 +166,36 @@ const OverviewLayout = ({ onChangeSection }) => {
 };
 
 // ==================================================================
-// PLACEHOLDERS (MANTIDOS IGUAIS PARA FUNCIONAR)
+// PLACEHOLDERS
 // ==================================================================
 
 const InventoryLayoutPlaceholder = () => (
-  <div className="flex flex-col items-center justify-center h-full text-gray-400 bg-white rounded-3xl border border-gray-100 shadow-sm animate-fade-in">
-    <div className="p-5 bg-orange-50 rounded-full mb-4">
-      <Package size={48} className="text-orange-500" />
+  <div className="flex flex-col items-center justify-center h-full text-gray-400 bg-white rounded-3xl border border-gray-100 shadow-sm animate-fade-in min-h-[500px]">
+    <div className="w-24 h-24 relative mb-6 opacity-50">
+        <Image src="/icons/inventory.png" alt="Almoxarifado" fill className="object-contain" />
     </div>
-    <h2 className="text-2xl font-bold text-gray-800 mb-2">Módulo Almoxarifado</h2>
-    <p className="text-gray-500 max-w-md text-center">Menu lateral laranja e funcionalidades em breve.</p>
+    <h2 className="text-3xl font-bold text-gray-800 mb-2">Módulo Almoxarifado</h2>
+    <p className="text-gray-500 max-w-md text-center text-lg">Menu lateral laranja e funcionalidades em breve.</p>
   </div>
 );
 
 const SalesLayoutPlaceholder = () => (
-  <div className="flex flex-col items-center justify-center h-full text-gray-400 bg-white rounded-3xl border border-gray-100 shadow-sm animate-fade-in">
-    <div className="p-5 bg-gray-50 rounded-full mb-4">
-      <ShoppingCart size={48} className="text-gray-500" />
+  <div className="flex flex-col items-center justify-center h-full text-gray-400 bg-white rounded-3xl border border-gray-100 shadow-sm animate-fade-in min-h-[500px]">
+    <div className="w-24 h-24 relative mb-6 opacity-50">
+        <Image src="/icons/sales.png" alt="Vendas" fill className="object-contain" />
     </div>
-    <h2 className="text-2xl font-bold text-gray-800 mb-2">Módulo de Vendas</h2>
-    <p className="text-gray-500 max-w-md text-center">Em breve.</p>
+    <h2 className="text-3xl font-bold text-gray-800 mb-2">Módulo de Vendas</h2>
+    <p className="text-gray-500 max-w-md text-center text-lg">Em breve.</p>
   </div>
 );
 
 const FinanceLayoutPlaceholder = () => (
-  <div className="flex flex-col items-center justify-center h-full text-gray-400 bg-white rounded-3xl border border-gray-100 shadow-sm animate-fade-in">
-    <div className="p-5 bg-gray-50 rounded-full mb-4">
-      <Banknote size={48} className="text-gray-500" />
+  <div className="flex flex-col items-center justify-center h-full text-gray-400 bg-white rounded-3xl border border-gray-100 shadow-sm animate-fade-in min-h-[500px]">
+    <div className="w-24 h-24 relative mb-6 opacity-50">
+        <Image src="/icons/finance.png" alt="Financeiro" fill className="object-contain" />
     </div>
-    <h2 className="text-2xl font-bold text-gray-800 mb-2">Módulo Financeiro</h2>
-    <p className="text-gray-500 max-w-md text-center">Em breve.</p>
+    <h2 className="text-3xl font-bold text-gray-800 mb-2">Módulo Financeiro</h2>
+    <p className="text-gray-500 max-w-md text-center text-lg">Em breve.</p>
   </div>
 );
 
