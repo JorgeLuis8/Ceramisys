@@ -14,6 +14,7 @@ export function Sidebar({ activeSection, onChangeSection, isOpen, toggleSidebar 
   const menuItems = [
     { id: 'overview', icon: LayoutDashboard, label: 'Visão Geral' },
     { id: 'inventory', icon: Box, label: 'Almoxarifado' },
+    // O ID 'sales' aqui é o que aciona o SalesLayout no page.tsx
     { id: 'sales', icon: ShoppingCart, label: 'Vendas' },
     { id: 'finance', icon: Wallet, label: 'Financeiro' },
   ];
@@ -34,15 +35,11 @@ export function Sidebar({ activeSection, onChangeSection, isOpen, toggleSidebar 
           fixed top-0 left-0 h-full bg-white border-r border-gray-200 z-50 transition-all duration-300 ease-in-out
           ${isOpen ? 'w-64 translate-x-0' : 'w-20 -translate-x-full md:translate-x-0'} 
         `}
-        // Explicação das classes acima:
-        // Mobile Fechado: -translate-x-full (Escondido para a esquerda)
-        // Mobile Aberto: translate-x-0 (Visível, w-64)
-        // Desktop Fechado: w-20 (Mini sidebar)
-        // Desktop Aberto: w-64 (Full sidebar)
       >
         {/* Header da Sidebar */}
         <div className="h-20 flex items-center justify-center border-b border-gray-100 relative">
           <div className="relative w-10 h-10">
+             {/* Certifique-se que o logo existe em public/icons/logo.png */}
              <Image src="/icons/logo.png" alt="Logo" fill className="object-contain" />
           </div>
           
@@ -70,13 +67,15 @@ export function Sidebar({ activeSection, onChangeSection, isOpen, toggleSidebar 
                 key={item.id}
                 onClick={() => {
                   onChangeSection(item.id);
-                  // No mobile, fecha o menu ao clicar
-                  if (window.innerWidth < 768) toggleSidebar();
+                  // No mobile, fecha o menu ao clicar para melhorar a experiência
+                  if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                    toggleSidebar();
+                  }
                 }}
                 className={`
                   w-full flex items-center p-3 rounded-xl transition-all duration-200 group relative
                   ${isActive 
-                    ? 'bg-orange-50 text-orange-600 shadow-sm' 
+                    ? 'bg-orange-50 text-orange-600 shadow-sm font-bold' 
                     : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}
                   ${!isOpen ? 'justify-center' : ''}
                 `}
@@ -91,7 +90,7 @@ export function Sidebar({ activeSection, onChangeSection, isOpen, toggleSidebar 
 
                 {/* Tooltip para Sidebar Fechada (Desktop) */}
                 {!isOpen && (
-                  <div className="absolute left-full ml-4 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 whitespace-nowrap hidden md:block">
+                  <div className="absolute left-full ml-4 px-3 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 whitespace-nowrap hidden md:block shadow-lg">
                     {item.label}
                   </div>
                 )}
