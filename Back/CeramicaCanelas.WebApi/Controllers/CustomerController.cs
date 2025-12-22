@@ -25,7 +25,9 @@ namespace CeramicaCanelas.WebApi.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> CreateCustomer([FromForm] CreateCustomerCommand command, CancellationToken cancellationToken)
         {
+            //coment
             await _mediator.Send(command);
+            
             return NoContent();
         }
 
