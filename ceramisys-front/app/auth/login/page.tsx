@@ -5,14 +5,16 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { z } from 'zod';
+import { api } from '@/lib/api';
+import Cookies from 'js-cookie';
 
-// 1. Tipagem para os erros (Isso resolve os erros do TypeScript)
 type FormErrors = {
   [key: string]: string | null | undefined;
 };
 
+// Validação usando Username
 const loginSchema = z.object({
-  email: z.string().email("Digite um e-mail válido"),
+  username: z.string().min(1, "O usuário é obrigatório"),
   password: z.string().min(1, "A senha é obrigatória")
 });
 
@@ -22,9 +24,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [generalError, setGeneralError] = useState(""); 
   
-  const [form, setForm] = useState({ email: '', password: '' });
-  
-  // 2. Aplicando o tipo FormErrors aqui
+  const [form, setForm] = useState({ username: '', password: '' });
   const [errors, setErrors] = useState<FormErrors>({});
 
   useEffect(() => {
@@ -35,7 +35,6 @@ export default function LoginPage() {
     const { id, value } = e.target;
     setForm((prev) => ({ ...prev, [id]: value }));
     
-    // Agora o TypeScript aceita errors[id] por causa do [key: string]
     if (errors[id]) setErrors((prev) => ({ ...prev, [id]: null }));
     if (generalError) setGeneralError("");
   }
@@ -49,10 +48,8 @@ export default function LoginPage() {
     const result = loginSchema.safeParse(form);
 
     if (!result.success) {
-      // 3. Tipando o objeto temporário também
       const fieldErrors: FormErrors = {};
       result.error.issues.forEach((issue) => {
-        // issue.path[0] retorna string ou number, forçamos string aqui
         const fieldName = String(issue.path[0]);
         fieldErrors[fieldName] = issue.message;
       });
@@ -61,10 +58,54 @@ export default function LoginPage() {
       return;
     }
 
-    setTimeout(() => {
-      setLoading(false);
-      router.push('/dashboard');
-    }, 1500);
+    try {
+      const response = await api.post('/api/auth', null, {
+        params: {
+          Username: form.username,
+          Password: form.password
+        }
+      });
+
+      // 1. Pegamos os dados da resposta
+      const { accessToken, expirationDate } = response.data;
+
+      if (accessToken) {
+        const expires = expirationDate ? new Date(expirationDate) : 1;
+
+        // 2. SALVANDO O COOKIE CORRETAMENTE
+        // path: '/' é essencial para o dashboard enxergar o token
+        Cookies.set('auth_token', accessToken, { 
+            expires: expires, 
+            path: '/', 
+            secure: window.location.protocol === 'https:', // Só usa Secure se for HTTPS
+            sameSite: 'Lax'
+        });
+
+        console.log("Login efetuado. Redirecionando...");
+        
+        // Pequeno delay para garantir que o navegador salvou o cookie
+        setTimeout(() => {
+            router.push('/dashboard');
+        }, 100);
+        
+      } else {
+        setGeneralError("Erro: Credenciais válidas, mas sem token.");
+      }
+
+    } catch (error: any) {
+      if (error.response) {
+        if (error.response.status === 401 || error.response.status === 404) {
+            setGeneralError("Usuário ou senha incorretos.");
+        } else {
+            setGeneralError("Erro ao processar login.");
+        }
+      } else if (error.request) {
+        setGeneralError("Sem conexão com o servidor.");
+      } else {
+        setGeneralError("Ocorreu um erro inesperado.");
+      }
+      setLoading(false); // Só tira o loading se der erro
+    }
   }
 
   return (
@@ -133,22 +174,21 @@ export default function LoginPage() {
             <form onSubmit={handleSubmit} className="space-y-6">
               
               <div>
-                <label htmlFor="email" className="block text-sm font-bold text-gray-700 mb-2 ml-1">
-                  E-mail Profissional
+                <label htmlFor="username" className="block text-sm font-bold text-gray-700 mb-2 ml-1">
+                  Nome de Usuário
                 </label>
                 <input
-                  id="email"
-                  type="email"
-                  value={form.email}
+                  id="username"
+                  type="text"
+                  value={form.username}
                   onChange={handleChange}
-                  placeholder="admin@ceramica.com"
+                  placeholder="admin"
                   className={`w-full px-5 py-4 text-base border-2 rounded-2xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-4 transition-all duration-200 placeholder:text-gray-400 text-gray-900
-                    ${errors.email 
+                    ${errors.username 
                       ? 'border-red-300 focus:border-red-500 focus:ring-red-500/10' 
                       : 'border-gray-200 focus:border-orange-500 focus:ring-orange-500/10'}`}
                 />
-                {/* O erro abaixo foi resolvido pela tipagem */}
-                {errors.email && <p className="mt-1 ml-1 text-sm text-red-500 font-medium">{errors.email}</p>}
+                {errors.username && <p className="mt-1 ml-1 text-sm text-red-500 font-medium">{errors.username}</p>}
               </div>
 
               <div>

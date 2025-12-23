@@ -2,23 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { Menu } from 'lucide-react';
+import { Menu, Loader2 } from 'lucide-react'; 
+import { useRouter } from 'next/navigation';
+import Cookies from 'js-cookie';
 
-// ==================================================================
-// 1. IMPORTAÇÕES (CAMINHOS CORRIGIDOS)
-// ==================================================================
-
-// Sidebar: Verifique se o arquivo está em components/Sidebar.tsx ou components/dashboard/Sidebar.tsx
-// Se der erro, tente: import { Sidebar } from '@/components/dashboard/Sidebar';
+// IMPORTAÇÕES
 import { Sidebar } from '@/components/Sidebar'; 
-
-// Módulos (Caminhos "flat" conforme suas pastas)
 import { InventoryLayout } from '@/components/inventory/InventoryLayout';
 import { SalesLayout } from '@/components/sales/SalesLayout';
 import { FinanceLayout } from '@/components/finance/FinanceLayout'; 
 
 // ==================================================================
-// 2. TELA DE VISÃO GERAL (OVERVIEW)
+// TELA DE VISÃO GERAL
 // ==================================================================
 
 interface OverviewLayoutProps {
@@ -26,7 +21,6 @@ interface OverviewLayoutProps {
 }
 
 const OverviewLayout = ({ onChangeSection }: OverviewLayoutProps) => {
-  
   const modules = [
     {
       id: 'inventory',
@@ -71,12 +65,10 @@ const OverviewLayout = ({ onChangeSection }: OverviewLayoutProps) => {
 
   return (
     <div className="space-y-8 animate-fade-in pb-12">
-      
       {/* BANNER */}
       <div className="relative w-full min-h-[320px] rounded-3xl overflow-hidden bg-white border border-gray-100 shadow-sm flex flex-col items-center justify-center text-center p-8 md:p-12">
         <div className="absolute top-[-50%] left-[-10%] w-96 h-96 bg-orange-100/40 rounded-full blur-3xl opacity-60 pointer-events-none"></div>
         <div className="absolute bottom-[-50%] right-[-10%] w-96 h-96 bg-gray-100/40 rounded-full blur-3xl opacity-60 pointer-events-none"></div>
-
         <div className="relative z-10 flex flex-col items-center animate-float">
           <div className="w-32 h-32 md:w-40 md:h-40 relative mb-6">
              <Image src="/icons/logo.png" alt="Logo" fill className="object-contain drop-shadow-xl" priority />
@@ -119,7 +111,7 @@ const OverviewLayout = ({ onChangeSection }: OverviewLayoutProps) => {
         })}
       </div>
 
-      {/* FOOTER INFO */}
+      {/* FOOTER */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {resources.map((res, idx) => (
           <div key={idx} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 hover:border-orange-200 transition-colors">
@@ -133,81 +125,73 @@ const OverviewLayout = ({ onChangeSection }: OverviewLayoutProps) => {
 };
 
 // ==================================================================
-// 3. COMPONENTE PRINCIPAL (CONTROLADOR DE NAVEGAÇÃO)
+// 3. COMPONENTE PRINCIPAL (PROTEGIDO)
 // ==================================================================
 
 export default function DashboardPage() {
+  const router = useRouter(); 
   const [activeModule, setActiveModule] = useState('overview'); 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isMounted, setIsMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); 
 
   useEffect(() => {
-    setIsMounted(true);
+    const checkAuth = () => {
+      // Verifica o cookie com path: '/'
+      const token = Cookies.get('auth_token');
+
+      if (!token) {
+        console.log("Token não encontrado no Dashboard. Redirecionando...");
+        router.replace('/auth/login');
+      } else {
+        // Token encontrado, libera a view
+        setIsLoading(false);
+      }
+    };
+
+    // Pequeno delay para garantir que o cookie foi montado
+    const timeout = setTimeout(() => {
+        checkAuth();
+    }, 100);
+
     if (window.innerWidth < 768) {
       setIsSidebarOpen(false);
     }
-  }, []);
 
-  if (!isMounted) return null;
+    return () => clearTimeout(timeout);
+  }, [router]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+        <Loader2 className="w-12 h-12 text-orange-500 animate-spin mb-4" />
+        <p className="text-gray-500 font-medium">Verificando credenciais...</p>
+      </div>
+    );
+  }
 
   // --- ROTEAMENTO DOS MÓDULOS ---
 
-  if (activeModule === 'inventory') {
-    return <InventoryLayout onBackToMain={() => setActiveModule('overview')} />;
-  }
-
-  if (activeModule === 'sales') {
-    return <SalesLayout onBackToMain={() => setActiveModule('overview')} />;
-  }
-
-  // FINANCEIRO: Agora carrega o módulo real
-  if (activeModule === 'finance') {
-    return <FinanceLayout onBackToMain={() => setActiveModule('overview')} />;
-  }
-
-  // --- RENDERIZAÇÃO DA VISÃO GERAL ---
+  if (activeModule === 'inventory') return <InventoryLayout onBackToMain={() => setActiveModule('overview')} />;
+  if (activeModule === 'sales') return <SalesLayout onBackToMain={() => setActiveModule('overview')} />;
+  if (activeModule === 'finance') return <FinanceLayout onBackToMain={() => setActiveModule('overview')} />;
 
   const getHeaderTitle = () => activeModule === 'overview' ? 'Visão Geral' : 'CeramiSys';
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] flex font-sans overflow-hidden">
-      
-      <Sidebar 
-        activeSection={activeModule} 
-        onChangeSection={setActiveModule}
-        isOpen={isSidebarOpen}
-        toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-      />
-
-      <main 
-        className={`flex-1 flex flex-col h-screen transition-all duration-300 ease-in-out 
-        ${isSidebarOpen ? 'md:ml-64' : 'md:ml-20'} ml-0`} 
-      >
+      <Sidebar activeSection={activeModule} onChangeSection={setActiveModule} isOpen={isSidebarOpen} toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
+      <main className={`flex-1 flex flex-col h-screen transition-all duration-300 ease-in-out ${isSidebarOpen ? 'md:ml-64' : 'md:ml-20'} ml-0`}>
         <header className="h-20 bg-white/90 backdrop-blur-sm border-b border-gray-200 flex items-center justify-between px-6 md:px-8 sticky top-0 z-40 shadow-sm">
            <div className="flex items-center gap-4">
-             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg md:hidden">
-               <Menu size={24} />
-             </button>
-             <h1 className="text-xl md:text-2xl font-bold text-gray-800 capitalize truncate">
-               {getHeaderTitle()}
-             </h1>
+             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg md:hidden"><Menu size={24} /></button>
+             <h1 className="text-xl md:text-2xl font-bold text-gray-800 capitalize truncate">{getHeaderTitle()}</h1>
            </div>
-           
            <div className="flex items-center gap-4">
-              <div className="flex flex-col items-end mr-2 hidden md:flex">
-                <span className="text-sm font-bold text-gray-700">Admin</span>
-                <span className="text-xs text-gray-500">CeramiSys</span>
-              </div>
-              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-orange-500 to-orange-400 text-white flex items-center justify-center font-bold shadow-md border-2 border-white cursor-pointer shrink-0">
-                AD
-              </div>
+              <div className="flex flex-col items-end mr-2 hidden md:flex"><span className="text-sm font-bold text-gray-700">Admin</span><span className="text-xs text-gray-500">CeramiSys</span></div>
+              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-orange-500 to-orange-400 text-white flex items-center justify-center font-bold shadow-md border-2 border-white cursor-pointer shrink-0">AD</div>
            </div>
         </header>
-
-        <div className="flex-1 p-4 md:p-8 overflow-y-auto bg-[#f8f9fa] custom-scrollbar pb-20">
-           <OverviewLayout onChangeSection={setActiveModule} />
-        </div>
-
+        <div className="flex-1 p-4 md:p-8 overflow-y-auto bg-[#f8f9fa] custom-scrollbar pb-20"><OverviewLayout onChangeSection={setActiveModule} /></div>
       </main>
     </div>
   );
