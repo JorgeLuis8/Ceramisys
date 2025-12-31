@@ -1,39 +1,296 @@
-import React from 'react';
-import { Filter, X, Undo2, Package, CheckCircle2, Search, User } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Filter, X, Undo2, Package, CheckCircle2, Search, User, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { TableAction } from '@/components/ui/TableAction';
+import { api } from '@/lib/api';
+
+// Interface atualizada com returnedQuantity
+interface PendingExit {
+  id: string;
+  productName: string;
+  employeeName: string;
+  quantity: number;
+  returnedQuantity: number;
+  exitDate: string;
+  isReturnable: boolean;
+}
 
 export function ProductReturns() {
+  const [loading, setLoading] = useState(false);
+  const [tableLoading, setTableLoading] = useState(false);
+  const [items, setItems] = useState<PendingExit[]>([]);
+  
+  const [page, setPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const pageSize = 10;
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<PendingExit | null>(null);
+  const [quantityToReturn, setQuantityToReturn] = useState<number>(1);
+
+  useEffect(() => {
+    fetchPendingItems();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
+
+  const fetchPendingItems = async (isReset = false) => {
+    setTableLoading(true);
+    try {
+      const params = {
+        Page: isReset ? 1 : page,
+        PageSize: pageSize,
+        Search: isReset ? '' : searchTerm,
+        OrderBy: 'ExitDate',
+        Ascending: true
+      };
+
+      const response = await api.get('/api/products-exit/paged', { params });
+      const data = response.data;
+
+      let fetchedItems: PendingExit[] = [];
+      if (data.items) fetchedItems = data.items;
+      else if (Array.isArray(data)) fetchedItems = data;
+
+      const pendingOnly = fetchedItems.filter(item => 
+        item.isReturnable === true && 
+        item.returnedQuantity < item.quantity
+      );
+
+      setItems(pendingOnly);
+      setTotalItems(pendingOnly.length); 
+
+    } catch (error) {
+      console.error("Erro ao buscar pendências", error);
+    } finally {
+      setTableLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Tem certeza que deseja cancelar este registro de saída? O estoque será estornado.")) {
+      return;
+    }
+    try {
+      await api.delete(`/api/products-exit/${id}`);
+      alert("Registro excluído com sucesso!");
+      fetchPendingItems(); 
+    } catch (error) {
+      console.error("Erro ao excluir", error);
+      alert("Erro ao excluir registro.");
+    }
+  };
+
+  const handleOpenModal = (item: PendingExit) => {
+    setSelectedItem(item);
+    setQuantityToReturn(item.quantity - item.returnedQuantity); 
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedItem(null);
+    setQuantityToReturn(1);
+  };
+
+  const handleConfirmReturn = async () => {
+    if (!selectedItem) return;
+    const remaining = selectedItem.quantity - selectedItem.returnedQuantity;
+
+    if (quantityToReturn <= 0 || quantityToReturn > remaining) {
+      alert(`Quantidade inválida. O máximo permitido é ${remaining}.`);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('Id', selectedItem.id);
+      formData.append('QuantityReturned', quantityToReturn.toString());
+
+      await api.put('/api/products-exit/returned-products', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      alert("Devolução registrada com sucesso!");
+      handleCloseModal();
+      fetchPendingItems();
+
+    } catch (error) {
+      console.error("Erro na devolução", error);
+      alert("Erro ao processar devolução.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFilter = () => { setPage(1); fetchPendingItems(); };
+  const handleClear = () => { setSearchTerm(''); setPage(1); fetchPendingItems(true); };
+
+  const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('pt-BR');
+  
+  // 1. CORREÇÃO DA COR DO TEXTO AQUI (text-slate-900)
+  const inputClass = "w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-900 placeholder:text-slate-400";
+
   return (
     <div className="space-y-8 animate-fade-in p-6 pb-20 bg-slate-50 min-h-screen">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4"><div><h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><Undo2 className="text-orange-600" /> Devolução</h1><p className="text-slate-500">Baixa de itens pendentes.</p></div></div>
       
-      {/* BARRA DE FILTRO PADRÃO */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+            <Undo2 className="text-orange-600" /> Devolução
+          </h1>
+          <p className="text-slate-500">Baixa de itens pendentes.</p>
+        </div>
+      </div>
+      
+      {/* BARRA DE FILTRO */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
          <div className="bg-slate-50 p-6 rounded-lg border border-slate-200 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                <div className="lg:col-span-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase">Buscar Produto</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase">Buscar</label>
                   <div className="relative mt-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                    <input type="text" className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
-                  </div>
-               </div>
-               <div className="lg:col-span-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase">Colaborador</label>
-                  <div className="relative mt-1">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                    <input type="text" className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+                    <input 
+                        type="text" 
+                        className={inputClass} 
+                        placeholder="Produto ou Colaborador..."
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleFilter()}
+                    />
                   </div>
                </div>
             </div>
             <div className="flex gap-2 pt-2">
-              <Button variant="soft" size="sm" icon={Filter}>FILTRAR</Button>
-              <Button variant="outline" size="sm" icon={X}>LIMPAR</Button>
+              <Button variant="soft" size="sm" icon={Filter} onClick={handleFilter}>FILTRAR</Button>
+              <Button variant="outline" size="sm" icon={X} onClick={handleClear}>LIMPAR</Button>
             </div>
          </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"><div className="p-6 border-b border-slate-200 flex justify-between items-center"><h2 className="text-lg font-bold text-slate-800">Itens Pendentes</h2><span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold">1 Pendente</span></div><div className="overflow-x-auto"><table className="w-full text-left border-collapse min-w-[700px]"><thead className="bg-slate-50 text-slate-600 text-xs uppercase font-bold border-b border-slate-200"><tr><th className="p-4">Produto</th><th className="p-4">Funcionário</th><th className="p-4 text-center">Qtd.</th><th className="p-4 text-center">Data</th><th className="p-4 text-right">Ação</th></tr></thead><tbody className="text-sm text-slate-600"><tr className="hover:bg-slate-50 border-b border-slate-100 last:border-0"><td className="p-4 font-bold text-slate-800 flex items-center gap-2"><Package size={16} className="text-orange-600" /> Saca-Polias</td><td className="p-4 font-medium">FRANCISCO JUNIOR</td><td className="p-4 text-center font-bold text-red-500">1</td><td className="p-4 text-center">17/12/2025</td><td className="p-4 text-right"><Button variant="primary" size="sm" icon={CheckCircle2}>DEVOLVER</Button></td></tr></tbody></table></div></div>
+      {/* TABELA */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="p-6 border-b border-slate-200 flex justify-between items-center">
+            <h2 className="text-lg font-bold text-slate-800">Itens Pendentes</h2>
+            <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold">
+                {items.length} Pendente(s)
+            </span>
+        </div>
+        
+        <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[700px]">
+                <thead className="bg-slate-50 text-slate-600 text-xs uppercase font-bold border-b border-slate-200">
+                    <tr>
+                        <th className="p-4">Produto</th>
+                        <th className="p-4">Funcionário</th>
+                        <th className="p-4 text-center">Qtd. Pendente</th>
+                        <th className="p-4 text-center">Data Saída</th>
+                        <th className="p-4 text-right">Ação</th>
+                    </tr>
+                </thead>
+                <tbody className="text-sm text-slate-600">
+                    {tableLoading ? (
+                        <tr><td colSpan={5} className="p-8 text-center"><div className="flex justify-center gap-2"><Loader2 className="animate-spin"/> Carregando...</div></td></tr>
+                    ) : items.length === 0 ? (
+                        <tr><td colSpan={5} className="p-8 text-center text-slate-500">Nenhum item pendente encontrado.</td></tr>
+                    ) : (
+                        items.map((item) => {
+                            const remaining = item.quantity - item.returnedQuantity;
+                            return (
+                                <tr key={item.id} className="hover:bg-slate-50 border-b border-slate-100 last:border-0">
+                                    <td className="p-4 font-bold text-slate-800 flex items-center gap-2">
+                                        <Package size={16} className="text-orange-600" /> 
+                                        {item.productName}
+                                    </td>
+                                    <td className="p-4 font-medium">{item.employeeName}</td>
+                                    <td className="p-4 text-center">
+                                        <div className="flex flex-col items-center">
+                                            <span className="font-bold text-red-500 text-lg">{remaining}</span>
+                                            <span className="text-xs text-slate-400">de {item.quantity} originais</span>
+                                        </div>
+                                    </td>
+                                    <td className="p-4 text-center text-slate-500">{formatDate(item.exitDate)}</td>
+                                    <td className="p-4 text-right">
+                                        <div className="flex justify-end gap-2">
+                                            <Button 
+                                                variant="primary" 
+                                                size="sm" 
+                                                icon={CheckCircle2}
+                                                onClick={() => handleOpenModal(item)}
+                                            >
+                                                DEVOLVER
+                                            </Button>
+                                            <TableAction 
+                                                variant="delete" 
+                                                onClick={() => handleDelete(item.id)} 
+                                            />
+                                        </div>
+                                    </td>
+                                </tr>
+                            );
+                        })
+                    )}
+                </tbody>
+            </table>
+        </div>
+
+        <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+            <span className="text-sm text-slate-500">Mostrando registros</span>
+            <div className="flex items-center gap-2">
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1 || tableLoading} className="p-2 border border-slate-300 rounded-lg hover:bg-white disabled:opacity-50"><ChevronLeft size={16} /></button>
+                <span className="text-sm font-medium text-slate-700 px-2">{page}</span>
+                <button onClick={() => setPage(p => p + 1)} disabled={items.length < pageSize || tableLoading} className="p-2 border border-slate-300 rounded-lg hover:bg-white disabled:opacity-50"><ChevronRight size={16} /></button>
+            </div>
+        </div>
+      </div>
+
+      {/* --- MODAL DE CONFIRMAÇÃO --- */}
+      {isModalOpen && selectedItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+                <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <h3 className="font-bold text-slate-800">Confirmar Devolução</h3>
+                    <button onClick={handleCloseModal} className="text-slate-400 hover:text-red-500"><X size={20}/></button>
+                </div>
+                <div className="p-6 space-y-4">
+                    <div className="bg-orange-50 p-4 rounded-lg border border-orange-100">
+                        <p className="text-sm text-orange-800 font-medium">Produto: <span className="font-bold">{selectedItem.productName}</span></p>
+                        <p className="text-sm text-orange-800">Funcionário: {selectedItem.employeeName}</p>
+                    </div>
+                    
+                    <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-2">Quantidade a Devolver</label>
+                        {/* 2. CORREÇÃO DA COR DO TEXTO AQUI TAMBÉM (text-slate-900) */}
+                        <input 
+                            type="number" 
+                            className="w-full px-4 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-lg font-bold text-center text-slate-900"
+                            value={quantityToReturn}
+                            onChange={e => setQuantityToReturn(Number(e.target.value))}
+                            min="1"
+                            max={selectedItem.quantity - selectedItem.returnedQuantity}
+                        />
+                        <p className="text-xs text-slate-500 mt-1 text-center">
+                            Máximo Pendente: <strong>{selectedItem.quantity - selectedItem.returnedQuantity}</strong>
+                        </p>
+                    </div>
+                </div>
+                <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+                    <Button variant="outline" onClick={handleCloseModal}>CANCELAR</Button>
+                    <Button 
+                        variant="primary" 
+                        icon={loading ? Loader2 : CheckCircle2} 
+                        onClick={handleConfirmReturn} 
+                        disabled={loading}
+                    >
+                        {loading ? 'CONFIRMANDO...' : 'CONFIRMAR DEVOLUÇÃO'}
+                    </Button>
+                </div>
+            </div>
+        </div>
+      )}
+
     </div>
   );
 }
