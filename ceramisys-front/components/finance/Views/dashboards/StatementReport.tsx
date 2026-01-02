@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollText, Filter, Download, Loader2, TrendingUp, TrendingDown, Wallet, ArrowRightLeft } from 'lucide-react';
+import { ScrollText, Filter, Loader2, TrendingUp, TrendingDown, Wallet, ArrowRightLeft } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { api } from '@/lib/api';
 
@@ -43,7 +43,7 @@ interface ExtractEntry {
   date: string;
   description: string;
   value: number;
-  type: string; // "Entrada" ou "Saída"
+  type: string;
 }
 
 interface StatementResponse {
@@ -82,7 +82,6 @@ export function StatementReport() {
         StartDate: startDate,
         EndDate: endDate,
         PaymentMethod: paymentMethod ? Number(paymentMethod) : undefined
-        // GroupId e CategoryId podem ser adicionados aqui se precisar filtrar mais
       };
 
       const response = await api.get('/api/financial/dashboard-financial/with-extract', { params });
@@ -92,24 +91,6 @@ export function StatementReport() {
       console.error("Erro ao gerar relatório de extratos", error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleExportPdf = async () => {
-    try {
-        const params = { StartDate: startDate, EndDate: endDate, PaymentMethod: paymentMethod };
-        const response = await api.get('/api/financial/dashboard-financial/with-extract/pdf', { 
-            params, responseType: 'blob' 
-        });
-        const url = window.URL.createObjectURL(new Blob([response.data]));
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `relatorio_extratos_${startDate}.pdf`);
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-    } catch (error) {
-        alert("Erro ao exportar PDF.");
     }
   };
 
@@ -123,7 +104,6 @@ export function StatementReport() {
             </h1>
             <p className="text-slate-500">Visão consolidada de Lançamentos do Sistema e Extratos Manuais.</p>
         </div>
-        <Button variant="outline" icon={Download} onClick={handleExportPdf}>EXPORTAR PDF</Button>
       </div>
       
       {/* --- FILTROS --- */}

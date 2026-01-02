@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Save, Search, Banknote, ArrowUpCircle, ArrowDownCircle, 
   Loader2, Paperclip, User, Tag, X, Check, FileText, 
-  Filter, AlertCircle, ChevronLeft, ChevronRight, Edit, Trash2, Image as ImageIcon 
+  Filter, AlertCircle, ChevronLeft, ChevronRight, Edit, Trash2, 
+  Image as ImageIcon, History, Clock 
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { TableAction } from '@/components/ui/TableAction';
@@ -40,16 +41,25 @@ interface Launch {
   launchDate: string;
   dueDate?: string;
   status: number;
-  
   categoryId?: string;
   categoryName?: string;
-  
   customerId?: string;
   customerName?: string;
-  
   operatorName?: string;
   paymentMethod: number;
-  imageProofsUrls: string[]; // URLs das imagens existentes
+  imageProofsUrls: string[];
+}
+
+interface HistoryItem {
+  id: string;
+  description: string;
+  amount: number;
+  type: number;
+  categoryName: string;
+  customerName: string;
+  paymentMethod: string;
+  createdOn: string;
+  changeType: string;
 }
 
 export function Transactions() {
@@ -70,24 +80,30 @@ export function Transactions() {
   
   const [selectedCategory, setSelectedCategory] = useState<CategoryItem | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerItem | null>(null);
-  
-  // Arquivos
   const [files, setFiles] = useState<FileList | null>(null);
-  const [existingImages, setExistingImages] = useState<string[]>([]); // URLs para exibir
-  const [proofsToDelete, setProofsToDelete] = useState<string[]>([]); // URLs para deletar no backend
+  const [existingImages, setExistingImages] = useState<string[]>([]); 
+  const [proofsToDelete, setProofsToDelete] = useState<string[]>([]); 
 
-  // --- ESTADOS DE LISTAGEM ---
+  // --- ESTADOS DE LISTAGEM PRINCIPAL ---
   const [launches, setLaunches] = useState<Launch[]>([]);
   const [page, setPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const pageSize = 10;
 
-  // Filtros
+  // Filtros Main List
   const [search, setSearch] = useState('');
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterType, setFilterType] = useState('');
+
+  // --- ESTADOS DO HISTÓRICO (TABELA INFERIOR) ---
+  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  // Filtros do Histórico
+  const [histStartDate, setHistStartDate] = useState(new Date().toISOString().split('T')[0]); // Padrão: Hoje
+  const [histEndDate, setHistEndDate] = useState(new Date().toISOString().split('T')[0]);     // Padrão: Hoje
+  const [histType, setHistType] = useState(''); // Todos
 
   // --- MODAIS ---
   const [modalOpen, setModalOpen] = useState<'category' | 'customer' | null>(null);
@@ -95,10 +111,16 @@ export function Transactions() {
   const [modalLoading, setModalLoading] = useState(false);
   const [modalSearch, setModalSearch] = useState('');
 
+  // --- EFEITOS ---
   useEffect(() => {
     fetchLaunches();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
+
+  useEffect(() => {
+    fetchLaunchHistory(); // Busca histórico ao abrir a tela
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (modalOpen === 'category') fetchCategories();
@@ -106,7 +128,7 @@ export function Transactions() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modalOpen, modalSearch]);
 
-  // --- API CALLS ---
+  // --- API: LISTAGEM PRINCIPAL ---
   const fetchLaunches = async (isReset = false) => {
     setListLoading(true);
     try {
@@ -130,6 +152,42 @@ export function Transactions() {
     } catch (error) { console.error(error); } finally { setListLoading(false); }
   };
 
+  // --- API: HISTÓRICO DE LANÇAMENTOS (TABELA INFERIOR) ---
+  const fetchLaunchHistory = async () => {
+    setHistoryLoading(true);
+    try {
+        const params = {
+            StartDate: histStartDate || undefined,
+            EndDate: histEndDate || undefined,
+            Type: histType ? Number(histType) : undefined,
+            Page: 1,
+            PageSize: 50 // Limite maior para o histórico
+        };
+        const response = await api.get('/api/financial/launch/history', { params });
+        if (response.data.items) {
+            setHistoryItems(response.data.items);
+        } else {
+            setHistoryItems([]);
+        }
+    } catch (error) {
+        console.error("Erro histórico", error);
+    } finally {
+        setHistoryLoading(false);
+    }
+  };
+
+  // Helpers do Histórico
+  const handleHistFilter = () => fetchLaunchHistory();
+  const handleHistClear = () => {
+      const today = new Date().toISOString().split('T')[0];
+      setHistStartDate(today);
+      setHistEndDate(today);
+      setHistType('');
+      // Pequeno delay para o estado atualizar antes de chamar a API, ou chame explicitamente
+      setTimeout(() => fetchLaunchHistory(), 50); 
+  };
+
+  // ... (Funções de Modal e Delete iguais ao anterior) ...
   const fetchCategories = async () => {
     setModalLoading(true);
     try {
@@ -146,7 +204,6 @@ export function Transactions() {
     } catch (e) { console.error(e); } finally { setModalLoading(false); }
   };
 
-  // --- DELETE ---
   const handleDelete = async (id: string) => {
     if (!confirm("Deseja excluir permanentemente este lançamento?")) return;
     try {
@@ -154,17 +211,15 @@ export function Transactions() {
         alert("Lançamento excluído!");
         if (editingId === id) handleCancelEdit();
         fetchLaunches();
+        fetchLaunchHistory(); 
     } catch (error) {
-        console.error("Erro delete", error);
         alert("Erro ao excluir lançamento.");
     }
   };
 
-  // --- EDITAR ---
+  // ... (Edição e Salvar iguais ao anterior) ...
   const handleEdit = (item: Launch) => {
     setEditingId(item.id);
-    
-    // Popula campos básicos
     setFormType(item.type);
     setDescription(item.description);
     setAmount(item.amount.toString());
@@ -173,25 +228,16 @@ export function Transactions() {
     setFormStatus(item.status.toString());
     setFormPaymentMethod(item.paymentMethod.toString());
 
-    // Popula Vínculos (Simulando objetos para não precisar buscar na API agora)
-    if (item.categoryId && item.categoryName) {
-        setSelectedCategory({ id: item.categoryId, name: item.categoryName });
-    } else {
-        setSelectedCategory(null);
-    }
+    if (item.categoryId && item.categoryName) setSelectedCategory({ id: item.categoryId, name: item.categoryName });
+    else setSelectedCategory(null);
 
-    if (item.customerId && item.customerName) {
-        setSelectedCustomer({ id: item.customerId, name: item.customerName });
-    } else {
-        setSelectedCustomer(null);
-    }
+    if (item.customerId && item.customerName) setSelectedCustomer({ id: item.customerId, name: item.customerName });
+    else setSelectedCustomer(null);
 
-    // Imagens
     setExistingImages(item.imageProofsUrls || []);
-    setProofsToDelete([]); // Reseta lista de exclusão
+    setProofsToDelete([]);
     setFiles(null);
 
-    // Scroll para o topo
     if (formTopRef.current) formTopRef.current.scrollIntoView({ behavior: 'smooth' });
   };
 
@@ -199,28 +245,18 @@ export function Transactions() {
     setEditingId(null);
     setDescription(''); setAmount(''); setSelectedCategory(null); setSelectedCustomer(null); 
     setFiles(null); setExistingImages([]); setProofsToDelete([]);
-    setFormType(LaunchType.Expense); // Reset pro padrão
+    setFormType(LaunchType.Expense);
   };
 
   const handleMarkImageForDeletion = (url: string) => {
-    setProofsToDelete([...proofsToDelete, url]); // Adiciona à lista para backend
-    setExistingImages(existingImages.filter(img => img !== url)); // Remove da visualização
+    setProofsToDelete([...proofsToDelete, url]);
+    setExistingImages(existingImages.filter(img => img !== url));
   };
 
-  // --- SALVAR (POST / PUT) ---
   const handleSave = async () => {
-    if (!description || !amount) {
-        alert("Preencha Descrição e Valor.");
-        return;
-    }
-    if (formType === LaunchType.Expense && !selectedCategory) {
-        alert("Selecione a Categoria para a despesa.");
-        return;
-    }
-    if (formType === LaunchType.Income && !selectedCustomer) {
-        alert("Selecione o Cliente para a receita.");
-        return;
-    }
+    if (!description || !amount) { alert("Preencha Descrição e Valor."); return; }
+    if (formType === LaunchType.Expense && !selectedCategory) { alert("Selecione a Categoria."); return; }
+    if (formType === LaunchType.Income && !selectedCustomer) { alert("Selecione o Cliente."); return; }
 
     setLoading(true);
     try {
@@ -233,14 +269,9 @@ export function Transactions() {
         formData.append('PaymentMethod', formPaymentMethod);
         formData.append('Status', formStatus);
 
-        if (formType === LaunchType.Expense && selectedCategory) {
-            formData.append('CategoryId', selectedCategory.id);
-        }
-        if (formType === LaunchType.Income && selectedCustomer) {
-            formData.append('CustomerId', selectedCustomer.id);
-        }
+        if (formType === LaunchType.Expense && selectedCategory) formData.append('CategoryId', selectedCategory.id);
+        if (formType === LaunchType.Income && selectedCustomer) formData.append('CustomerId', selectedCustomer.id);
 
-        // Novos Arquivos
         if (files) {
             for (let i = 0; i < files.length; i++) {
                 formData.append('ImageProofs', files[i]);
@@ -248,43 +279,31 @@ export function Transactions() {
         }
 
         if (editingId) {
-            // --- PUT ---
             formData.append('Id', editingId);
-            
-            // Imagens para deletar
-            proofsToDelete.forEach(url => {
-                formData.append('ProofsToDelete', url);
-            });
-
-            await api.put('/api/financial/launch', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            proofsToDelete.forEach(url => formData.append('ProofsToDelete', url));
+            await api.put('/api/financial/launch', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
             alert("Lançamento atualizado!");
-            handleCancelEdit();
         } else {
-            // --- POST ---
-            await api.post('/api/financial/launch', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            await api.post('/api/financial/launch', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
             alert("Lançamento salvo!");
-            handleCancelEdit(); // Limpa o form
         }
         
-        fetchLaunches();
+        handleCancelEdit();
+        fetchLaunches(); 
+        fetchLaunchHistory(); 
 
     } catch (error) {
-        console.error("Erro save", error);
         alert("Erro ao salvar lançamento.");
     } finally {
         setLoading(false);
     }
   };
 
-  // --- HELPERS ---
   const handleFilter = () => { setPage(1); fetchLaunches(); };
   const handleClearFilters = () => { setSearch(''); setFilterStartDate(''); setFilterEndDate(''); setFilterStatus(''); setFilterType(''); setPage(1); fetchLaunches(true); };
   const formatMoney = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
   const formatDate = (dateStr?: string) => dateStr ? new Date(dateStr).toLocaleDateString('pt-BR') : '-';
+  const formatTime = (dateStr: string) => dateStr ? new Date(dateStr).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
   const totalPages = Math.ceil(totalItems / pageSize);
   const inputClass = "w-full px-4 py-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white text-slate-700";
 
@@ -304,106 +323,36 @@ export function Transactions() {
                 {editingId ? <Edit className="text-orange-500" size={20}/> : <Banknote className="text-blue-500" size={20}/>}
                 {editingId ? 'Editar Lançamento' : 'Novo Lançamento'}
             </h2>
-            {editingId && (
-                <Button variant="outline" size="sm" icon={X} onClick={handleCancelEdit}>Cancelar Edição</Button>
-            )}
+            {editingId && <Button variant="outline" size="sm" icon={X} onClick={handleCancelEdit}>Cancelar Edição</Button>}
         </div>
         
-        {/* SELETOR DE TIPO */}
         <div className="flex gap-4 border-b border-slate-100 pb-6">
-            <button 
-                onClick={() => { setFormType(LaunchType.Income); setSelectedCategory(null); }}
-                className={`flex-1 py-3 rounded-xl font-bold flex justify-center items-center gap-2 border-2 transition-all ${formType === LaunchType.Income ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm' : 'border-slate-100 text-slate-400 hover:border-emerald-200'}`}
-            >
-                <ArrowUpCircle size={20}/> ENTRADA
-            </button>
-            <button 
-                onClick={() => { setFormType(LaunchType.Expense); setSelectedCustomer(null); }}
-                className={`flex-1 py-3 rounded-xl font-bold flex justify-center items-center gap-2 border-2 transition-all ${formType === LaunchType.Expense ? 'border-red-500 bg-red-50 text-red-700 shadow-sm' : 'border-slate-100 text-slate-400 hover:border-red-200'}`}
-            >
-                <ArrowDownCircle size={20}/> SAÍDA
-            </button>
+            <button onClick={() => { setFormType(LaunchType.Income); setSelectedCategory(null); }} className={`flex-1 py-3 rounded-xl font-bold flex justify-center items-center gap-2 border-2 transition-all ${formType === LaunchType.Income ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm' : 'border-slate-100 text-slate-400 hover:border-emerald-200'}`}><ArrowUpCircle size={20}/> ENTRADA</button>
+            <button onClick={() => { setFormType(LaunchType.Expense); setSelectedCustomer(null); }} className={`flex-1 py-3 rounded-xl font-bold flex justify-center items-center gap-2 border-2 transition-all ${formType === LaunchType.Expense ? 'border-red-500 bg-red-50 text-red-700 shadow-sm' : 'border-slate-100 text-slate-400 hover:border-red-200'}`}><ArrowDownCircle size={20}/> SAÍDA</button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="md:col-span-3">
-                <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Descrição</label>
-                <input type="text" className={inputClass} value={description} onChange={e => setDescription(e.target.value)} />
-            </div>
-            <div className="md:col-span-1">
-                <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Valor (R$)</label>
-                <input type="number" className={`${inputClass} font-bold text-lg ${formType === LaunchType.Income ? 'text-emerald-600' : 'text-red-600'}`} placeholder="0,00" value={amount} onChange={e => setAmount(e.target.value)} />
-            </div>
+            <div className="md:col-span-3"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Descrição</label><input type="text" className={inputClass} value={description} onChange={e => setDescription(e.target.value)} /></div>
+            <div className="md:col-span-1"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Valor (R$)</label><input type="number" className={`${inputClass} font-bold text-lg ${formType === LaunchType.Income ? 'text-emerald-600' : 'text-red-600'}`} placeholder="0,00" value={amount} onChange={e => setAmount(e.target.value)} /></div>
             
             {formType === LaunchType.Expense && (
-                <div className="md:col-span-4 animate-fade-in">
-                    <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Categoria da Despesa</label>
-                    <div onClick={() => { setModalOpen('category'); setModalSearch(''); }} className="cursor-pointer relative group">
-                        <div className="w-full px-4 py-2.5 border border-slate-300 rounded-lg bg-slate-50 flex items-center justify-between group-hover:border-blue-400 transition-colors">
-                            <span className={selectedCategory ? "text-slate-800 font-medium" : "text-slate-400 italic"}>
-                                {selectedCategory ? selectedCategory.name : "Selecione a categoria..."}
-                            </span>
-                            <Tag className="text-slate-400" size={18}/>
-                        </div>
-                    </div>
-                </div>
+                <div className="md:col-span-4 animate-fade-in"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Categoria da Despesa</label><div onClick={() => { setModalOpen('category'); setModalSearch(''); }} className="cursor-pointer relative group"><div className="w-full px-4 py-2.5 border border-slate-300 rounded-lg bg-slate-50 flex items-center justify-between group-hover:border-blue-400 transition-colors"><span className={selectedCategory ? "text-slate-800 font-medium" : "text-slate-400 italic"}>{selectedCategory ? selectedCategory.name : "Selecione a categoria..."}</span><Tag className="text-slate-400" size={18}/></div></div></div>
             )}
-
             {formType === LaunchType.Income && (
-                <div className="md:col-span-4 animate-fade-in">
-                    <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Cliente (Pagador)</label>
-                    <div onClick={() => { setModalOpen('customer'); setModalSearch(''); }} className="cursor-pointer relative group">
-                        <div className="w-full px-4 py-2.5 border border-slate-300 rounded-lg bg-slate-50 flex items-center justify-between group-hover:border-blue-400 transition-colors">
-                            <span className={selectedCustomer ? "text-slate-800 font-medium" : "text-slate-400 italic"}>
-                                {selectedCustomer ? selectedCustomer.name : "Selecione o cliente..."}
-                            </span>
-                            <User className="text-slate-400" size={18}/>
-                        </div>
-                    </div>
-                </div>
+                <div className="md:col-span-4 animate-fade-in"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Cliente (Pagador)</label><div onClick={() => { setModalOpen('customer'); setModalSearch(''); }} className="cursor-pointer relative group"><div className="w-full px-4 py-2.5 border border-slate-300 rounded-lg bg-slate-50 flex items-center justify-between group-hover:border-blue-400 transition-colors"><span className={selectedCustomer ? "text-slate-800 font-medium" : "text-slate-400 italic"}>{selectedCustomer ? selectedCustomer.name : "Selecione o cliente..."}</span><User className="text-slate-400" size={18}/></div></div></div>
             )}
 
             <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Data Lançamento</label><input type="date" className={inputClass} value={launchDate} onChange={e => setLaunchDate(e.target.value)} /></div>
             <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Data Vencimento</label><input type="date" className={inputClass} value={dueDate} onChange={e => setDueDate(e.target.value)} /></div>
-            <div>
-                <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Pagamento</label>
-                <select className={inputClass} value={formPaymentMethod} onChange={e => setFormPaymentMethod(e.target.value)}>
-                    {Object.entries(PaymentMethodDescriptions).map(([id, label]) => (<option key={id} value={id}>{label}</option>))}
-                </select>
-            </div>
-            <div>
-                <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Status</label>
-                <select className={inputClass} value={formStatus} onChange={e => setFormStatus(e.target.value)}>
-                    <option value={PaymentStatus.Pending}>Pendente</option>
-                    <option value={PaymentStatus.Paid}>Pago</option>
-                </select>
-            </div>
+            <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Pagamento</label><select className={inputClass} value={formPaymentMethod} onChange={e => setFormPaymentMethod(e.target.value)}>{Object.entries(PaymentMethodDescriptions).map(([id, label]) => (<option key={id} value={id}>{label}</option>))}</select></div>
+            <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Status</label><select className={inputClass} value={formStatus} onChange={e => setFormStatus(e.target.value)}><option value={PaymentStatus.Pending}>Pendente</option><option value={PaymentStatus.Paid}>Pago</option></select></div>
 
             <div className="md:col-span-4">
                 <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Comprovantes</label>
-                
-                {/* Exibição de Imagens Existentes na Edição */}
-                {existingImages.length > 0 && (
-                    <div className="mb-3 flex flex-wrap gap-2">
-                        {existingImages.map((url, idx) => (
-                            <div key={idx} className="relative group border border-slate-200 rounded-lg overflow-hidden w-20 h-20">
-                                <img src={url} alt="Comprovante" className="w-full h-full object-cover"/>
-                                <button 
-                                    onClick={() => handleMarkImageForDeletion(url)}
-                                    className="absolute top-0 right-0 bg-red-500 text-white p-1 rounded-bl-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                                    title="Remover imagem"
-                                >
-                                    <X size={12}/>
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                )}
-
+                {existingImages.length > 0 && (<div className="mb-3 flex flex-wrap gap-2">{existingImages.map((url, idx) => (<div key={idx} className="relative group border border-slate-200 rounded-lg overflow-hidden w-20 h-20"><img src={url} alt="Comprovante" className="w-full h-full object-cover"/><button onClick={() => handleMarkImageForDeletion(url)} className="absolute top-0 right-0 bg-red-500 text-white p-1 rounded-bl-lg opacity-0 group-hover:opacity-100 transition-opacity"><X size={12}/></button></div>))}</div>)}
                 <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 bg-slate-50 flex flex-col items-center justify-center text-slate-500 hover:bg-slate-100 transition-all relative cursor-pointer">
                     <input type="file" multiple className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => setFiles(e.target.files)} />
-                    <Paperclip className="mb-1 text-blue-400"/>
-                    <span className="text-xs">{files && files.length > 0 ? `${files.length} arquivo(s) novo(s) selecionado(s)` : 'Anexar Novos Arquivos'}</span>
+                    <Paperclip className="mb-1 text-blue-400"/><span className="text-xs">{files && files.length > 0 ? `${files.length} arquivo(s) novo(s)` : 'Anexar Novos Arquivos'}</span>
                 </div>
             </div>
         </div>
@@ -415,10 +364,10 @@ export function Transactions() {
         </div>
       </div>
       
-      {/* --- LISTAGEM --- */}
+      {/* --- LISTAGEM PRINCIPAL --- */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-         {/* Filtros ... (Igual ao anterior) */}
          <div className="p-4 border-b border-slate-200 bg-slate-50">
+            <h3 className="font-bold text-slate-700 mb-4">Listagem Geral</h3>
             <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-3">
                 <div className="md:col-span-2">
                     <label className="text-[10px] font-bold text-slate-500 uppercase">Buscar</label>
@@ -428,14 +377,7 @@ export function Transactions() {
                     </div>
                 </div>
                 <div><label className="text-[10px] font-bold text-slate-500 uppercase">Tipo</label><select className="w-full px-3 py-2 border border-slate-300 rounded text-sm outline-none" value={filterType} onChange={e => setFilterType(e.target.value)}><option value="">Todos</option><option value="1">Entrada</option><option value="2">Saída</option></select></div>
-                <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Status</label>
-                    <select className="w-full px-3 py-2 border border-slate-300 rounded text-sm outline-none" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-                        <option value="">Todos</option>
-                        <option value="0">Pendente</option>
-                        <option value="1">Pago</option>
-                    </select>
-                </div>
+                <div><label className="text-[10px] font-bold text-slate-500 uppercase">Status</label><select className="w-full px-3 py-2 border border-slate-300 rounded text-sm outline-none" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}><option value="">Todos</option><option value="0">Pendente</option><option value="1">Pago</option></select></div>
                 <div><label className="text-[10px] font-bold text-slate-500 uppercase">De</label><input type="date" className="w-full px-3 py-2 border border-slate-300 rounded text-sm outline-none" value={filterStartDate} onChange={e => setFilterStartDate(e.target.value)} /></div>
                 <div><label className="text-[10px] font-bold text-slate-500 uppercase">Até</label><input type="date" className="w-full px-3 py-2 border border-slate-300 rounded text-sm outline-none" value={filterEndDate} onChange={e => setFilterEndDate(e.target.value)} /></div>
             </div>
@@ -450,7 +392,7 @@ export function Transactions() {
                 <thead className="bg-slate-100 text-xs font-bold uppercase text-slate-500">
                     <tr>
                         <th className="p-4 text-center">Tipo</th>
-                        <th className="p-4">Descrição / Origem</th>
+                        <th className="p-4">Descrição</th>
                         <th className="p-4">Categoria / Pagamento</th>
                         <th className="p-4 text-center">Datas</th>
                         <th className="p-4 text-center">Status</th>
@@ -467,70 +409,26 @@ export function Transactions() {
                         launches.map(item => (
                             <tr key={item.id} className={`transition-colors ${editingId === item.id ? 'bg-orange-50' : 'hover:bg-slate-50'}`}>
                                 <td className="p-4 text-center">
-                                    {item.type === LaunchType.Income ? (
-                                        <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full text-xs font-bold border border-emerald-200">
-                                            <ArrowUpCircle size={12} /> Entrada
-                                        </span>
-                                    ) : (
-                                        <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs font-bold border border-red-200">
-                                            <ArrowDownCircle size={12} /> Saída
-                                        </span>
-                                    )}
+                                    {item.type === LaunchType.Income ? (<span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full text-xs font-bold border border-emerald-200"><ArrowUpCircle size={12} /> Entrada</span>) : (<span className="inline-flex items-center gap-1 bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs font-bold border border-red-200"><ArrowDownCircle size={12} /> Saída</span>)}
                                 </td>
-
                                 <td className="p-4">
-                                    <div className="font-bold text-slate-800 flex items-center gap-2">
-                                        {item.description}
-                                        {item.imageProofsUrls && item.imageProofsUrls.length > 0 && <Paperclip size={14} className="text-blue-500" />}
-                                    </div>
+                                    <div className="font-bold text-slate-800 flex items-center gap-2">{item.description} {item.imageProofsUrls && item.imageProofsUrls.length > 0 && <Paperclip size={14} className="text-blue-500" />}</div>
                                     <div className="text-xs text-slate-500 mt-1 flex flex-col">
-                                        {item.type === LaunchType.Income && item.customerName && (
-                                            <span className="flex items-center gap-1 text-emerald-600"><User size={10}/> {item.customerName}</span>
-                                        )}
-                                        {item.type === LaunchType.Expense && item.categoryName && (
-                                            <span className="flex items-center gap-1 text-red-600"><Tag size={10}/> {item.categoryName}</span>
-                                        )}
-                                        {item.operatorName && <span className="text-slate-400 mt-0.5">Op: {item.operatorName}</span>}
+                                        {item.type === LaunchType.Income && item.customerName && <span className="flex items-center gap-1 text-emerald-600"><User size={10}/> {item.customerName}</span>}
+                                        {item.type === LaunchType.Expense && item.categoryName && <span className="flex items-center gap-1 text-red-600"><Tag size={10}/> {item.categoryName}</span>}
                                     </div>
                                 </td>
-                                <td className="p-4">
-                                    <div className="flex flex-col gap-1">
-                                        <span className="bg-slate-100 px-2 py-0.5 rounded text-xs w-fit text-slate-600 border border-slate-200">{item.categoryName || '-'}</span>
-                                        <span className="text-xs text-slate-400">{PaymentMethodDescriptions[item.paymentMethod]}</span>
-                                    </div>
-                                </td>
-                                <td className="p-4 text-center text-xs">
-                                    <div className="flex flex-col gap-1">
-                                        <span className="text-slate-600">Lanç: {formatDate(item.launchDate)}</span>
-                                        {item.dueDate && <span className="text-orange-600 font-medium">Venc: {formatDate(item.dueDate)}</span>}
-                                    </div>
-                                </td>
-                                <td className="p-4 text-center">
-                                    <span className={`px-2 py-1 rounded-full text-xs font-bold border ${
-                                        item.status === PaymentStatus.Paid ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 
-                                        'bg-orange-100 text-orange-700 border-orange-200'
-                                    }`}>
-                                        {PaymentStatusDescriptions[item.status]}
-                                    </span>
-                                </td>
-                                <td className={`p-4 text-right font-bold text-base ${item.type === LaunchType.Income ? 'text-emerald-600' : 'text-red-600'}`}>
-                                    {item.type === LaunchType.Expense ? '-' : '+'} {formatMoney(item.amount)}
-                                </td>
-                                <td className="p-4 text-right">
-                                    <div className="flex justify-end gap-2">
-                                        {/* Botão EDITAR */}
-                                        <TableAction variant="edit" onClick={() => handleEdit(item)} />
-                                        {/* Botão DELETAR */}
-                                        <TableAction variant="delete" onClick={() => handleDelete(item.id)} />
-                                    </div>
-                                </td>
+                                <td className="p-4"><div className="flex flex-col gap-1"><span className="bg-slate-100 px-2 py-0.5 rounded text-xs w-fit text-slate-600 border border-slate-200">{item.categoryName || '-'}</span><span className="text-xs text-slate-400">{PaymentMethodDescriptions[item.paymentMethod]}</span></div></td>
+                                <td className="p-4 text-center text-xs"><div className="flex flex-col gap-1"><span className="text-slate-600">Lanç: {formatDate(item.launchDate)}</span>{item.dueDate && <span className="text-orange-600 font-medium">Venc: {formatDate(item.dueDate)}</span>}</div></td>
+                                <td className="p-4 text-center"><span className={`px-2 py-1 rounded-full text-xs font-bold border ${item.status === PaymentStatus.Paid ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-orange-100 text-orange-700 border-orange-200'}`}>{PaymentStatusDescriptions[item.status]}</span></td>
+                                <td className={`p-4 text-right font-bold text-base ${item.type === LaunchType.Income ? 'text-emerald-600' : 'text-red-600'}`}>{item.type === LaunchType.Expense ? '-' : '+'} {formatMoney(item.amount)}</td>
+                                <td className="p-4 text-right"><div className="flex justify-end gap-2"><TableAction variant="edit" onClick={() => handleEdit(item)} /><TableAction variant="delete" onClick={() => handleDelete(item.id)} /></div></td>
                             </tr>
                         ))
                     )}
                 </tbody>
             </table>
          </div>
-
          {/* Paginação */}
          <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
             <span className="text-sm text-slate-500">Total: <strong>{totalItems}</strong></span>
@@ -542,10 +440,108 @@ export function Transactions() {
          </div>
       </div>
 
+      {/* --- TABELA 2: HISTÓRICO DE LANÇAMENTOS (NOVA SEÇÃO COM FILTROS) --- */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mt-8 animate-fade-in">
+         <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col md:flex-row gap-4 justify-between items-end">
+             <div className="flex-1 w-full">
+                 <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-3">
+                    <History className="text-purple-600"/> Histórico de Lançamentos
+                 </h3>
+                 
+                 {/* FILTROS DO HISTÓRICO */}
+                 <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                     <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">De</label>
+                        <input type="date" className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs outline-none" value={histStartDate} onChange={e => setHistStartDate(e.target.value)} />
+                     </div>
+                     <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Até</label>
+                        <input type="date" className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs outline-none" value={histEndDate} onChange={e => setHistEndDate(e.target.value)} />
+                     </div>
+                     <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Tipo</label>
+                        <select className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white" value={histType} onChange={e => setHistType(e.target.value)}>
+                            <option value="">Todos</option>
+                            <option value="1">Receita</option>
+                            <option value="2">Despesa</option>
+                        </select>
+                     </div>
+                     <div className="flex gap-2 items-end">
+                        <Button variant="soft" size="sm" icon={Filter} onClick={handleHistFilter}>Filtrar</Button>
+                        <Button variant="outline" size="sm" icon={X} onClick={handleHistClear}>Limpar</Button>
+                     </div>
+                 </div>
+             </div>
+         </div>
+
+         <div className="overflow-x-auto">
+             <table className="w-full text-left text-sm whitespace-nowrap">
+                <thead className="bg-purple-50 text-purple-900 font-bold uppercase text-xs">
+                    <tr>
+                        <th className="p-4 text-center">Hora</th>
+                        <th className="p-4 text-center">Tipo</th>
+                        <th className="p-4">Descrição</th>
+                        <th className="p-4">Categoria / Cliente</th>
+                        <th className="p-4">Método</th>
+                        <th className="p-4 text-center">Ação</th>
+                        <th className="p-4 text-right">Valor</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                    {historyLoading ? (
+                        <tr><td colSpan={7} className="p-8 text-center"><Loader2 className="animate-spin inline text-purple-500"/> Carregando histórico...</td></tr>
+                    ) : historyItems.length === 0 ? (
+                        <tr><td colSpan={7} className="p-8 text-center text-slate-400 italic">Nenhum registro encontrado no período.</td></tr>
+                    ) : (
+                        historyItems.map((item) => (
+                            <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                                <td className="p-4 text-center text-xs font-mono text-slate-500">
+                                    <div className="flex items-center justify-center gap-1">
+                                        <Clock size={12}/> {formatTime(item.createdOn)}
+                                    </div>
+                                </td>
+                                <td className="p-4 text-center">
+                                    {item.type === 1 ? (
+                                        <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full text-[10px] font-bold">
+                                            <ArrowUpCircle size={10} /> Rec
+                                        </span>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 px-2 py-1 rounded-full text-[10px] font-bold">
+                                            <ArrowDownCircle size={10} /> Desp
+                                        </span>
+                                    )}
+                                </td>
+                                <td className="p-4 font-medium text-slate-800 text-xs">{item.description}</td>
+                                <td className="p-4 text-xs text-slate-500">
+                                    <div className="flex flex-col">
+                                        <span className="font-bold text-slate-700">{item.categoryName || 'S/ Categoria'}</span>
+                                        <span className="text-slate-400">{item.customerName || 'S/ Cliente'}</span>
+                                    </div>
+                                </td>
+                                <td className="p-4 text-xs text-slate-600 font-medium">
+                                    {item.paymentMethod}
+                                </td>
+                                <td className="p-4 text-center">
+                                     <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded border border-slate-200">
+                                        {item.changeType}
+                                     </span>
+                                </td>
+                                <td className={`p-4 text-right font-bold text-sm ${item.type === 1 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                    {formatMoney(item.amount)}
+                                </td>
+                            </tr>
+                        ))
+                    )}
+                </tbody>
+             </table>
+         </div>
+      </div>
+
       {/* --- MODAL GENÉRICO --- */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh]">
+                {/* ... (Conteúdo do Modal igual ao anterior) ... */}
                 <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                     <h3 className="font-bold text-slate-800 flex items-center gap-2">
                         {modalOpen === 'category' ? <Tag className="text-blue-600" size={20}/> : <User className="text-blue-600" size={20}/>}
