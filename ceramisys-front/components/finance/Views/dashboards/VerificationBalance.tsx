@@ -68,6 +68,7 @@ export function VerificationBalance() {
   const [startDate, setStartDate] = useState(start);
   const [endDate, setEndDate] = useState(end);
   const [paymentMethod, setPaymentMethod] = useState('');
+  const [search, setSearch] = useState('');
 
   // --- EFEITO INICIAL ---
   useEffect(() => {
@@ -82,7 +83,8 @@ export function VerificationBalance() {
       const params = {
         StartDate: startDate,
         EndDate: endDate,
-        PaymentMethod: paymentMethod !== '' ? Number(paymentMethod) : undefined
+        PaymentMethod: paymentMethod !== '' ? Number(paymentMethod) : undefined,
+        Search: search || undefined
       };
 
       const response = await api.get('/api/financial/dashboard-financial/with-extract', { params });
@@ -102,14 +104,16 @@ export function VerificationBalance() {
         const params = { 
             StartDate: startDate, 
             EndDate: endDate, 
-            PaymentMethod: paymentMethod !== '' ? Number(paymentMethod) : undefined
+            PaymentMethod: paymentMethod !== '' ? Number(paymentMethod) : undefined,
+            Search: search || undefined
         };
         
         const response = await api.get('/api/financial/dashboard-financial/trial-balance/pdf', { 
             params, 
-            responseType: 'blob'
+            responseType: 'blob' // Essencial para baixar arquivos
         });
 
+        // Verifica se retornou JSON de erro ao invés de blob
         if (response.data.type === 'application/json') {
             const text = await response.data.text();
             const jsonError = JSON.parse(text);
@@ -117,6 +121,7 @@ export function VerificationBalance() {
             return;
         }
 
+        // Cria link de download
         const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
         const link = document.createElement('a');
         link.href = url;
@@ -127,7 +132,7 @@ export function VerificationBalance() {
         link.remove();
         window.URL.revokeObjectURL(url);
 
-    } catch (error: any) {
+    } catch (error) {
         console.error("Erro PDF:", error);
         alert("Erro ao tentar baixar o PDF.");
     } finally {
@@ -147,10 +152,24 @@ export function VerificationBalance() {
         </div>
       </div>
       
-      {/* --- FILTROS E AÇÕES (BOTÃO PDF AQUI) --- */}
+      {/* --- FILTROS --- */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
              <div className="md:col-span-2">
+                 <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Buscar</label>
+                 <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16}/>
+                    <input 
+                        type="text" 
+                        className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg outline-none text-sm" 
+                        value={search} 
+                        onChange={e => setSearch(e.target.value)}
+                        placeholder="Descrição..."
+                    />
+                 </div>
+             </div>
+             
+             <div>
                  <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Conta / Método</label>
                  <select 
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none text-sm bg-white text-slate-700"
@@ -163,6 +182,7 @@ export function VerificationBalance() {
                      ))}
                  </select>
              </div>
+             
              <div>
                  <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Início</label>
                  <input type="date" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none text-sm text-slate-700" value={startDate} onChange={e => setStartDate(e.target.value)}/>
@@ -171,30 +191,28 @@ export function VerificationBalance() {
                  <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Fim</label>
                  <input type="date" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none text-sm text-slate-700" value={endDate} onChange={e => setEndDate(e.target.value)}/>
              </div>
+         </div>
+
+         <div className="flex justify-end gap-2 mt-4">
+             <Button 
+                variant="primary" 
+                icon={loading ? Loader2 : Filter} 
+                onClick={fetchReport} 
+                disabled={loading}
+                className="w-32"
+             >
+                 {loading ? '...' : 'GERAR'}
+             </Button>
              
-             {/* BOTÕES LADO A LADO NA ÚLTIMA COLUNA */}
-             <div className="flex gap-2">
-                 <Button 
-                    className="flex-1"
-                    variant="primary" 
-                    icon={loading ? Loader2 : Filter} 
-                    onClick={fetchReport} 
-                    disabled={loading}
-                 >
-                     {loading ? '...' : 'GERAR'}
-                 </Button>
-                 
-                 <Button 
-                    className="flex-1 bg-red-600 hover:bg-red-700 text-white border-red-600"
-                    variant="primary" 
-                    icon={pdfLoading ? Loader2 : FileText} 
-                    onClick={handleExportPdf}
-                    disabled={pdfLoading}
-                    title="Baixar Balancete em PDF"
-                 >
-                    {pdfLoading ? '...' : 'PDF'}
-                 </Button>
-             </div>
+             <Button 
+                variant="outline" 
+                icon={pdfLoading ? Loader2 : FileText} 
+                onClick={handleExportPdf} 
+                disabled={pdfLoading}
+                className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 w-32"
+             >
+                 {pdfLoading ? '...' : 'PDF'}
+             </Button>
          </div>
       </div>
 
