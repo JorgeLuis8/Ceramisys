@@ -3,7 +3,7 @@ import Cookies from 'js-cookie'; // Importação nova
 
 // URL Base global
 // export const API_BASE_URL = "http://localhost:5087";
-const API_BASE_URL = 'https://api.ceramicacanelas.shop/api';
+const API_BASE_URL = 'https://api.ceramicacanelas.shop/';
 export const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
