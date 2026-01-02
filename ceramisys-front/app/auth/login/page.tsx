@@ -12,7 +12,6 @@ type FormErrors = {
   [key: string]: string | null | undefined;
 };
 
-// Validação usando Username
 const loginSchema = z.object({
   username: z.string().min(1, "O usuário é obrigatório"),
   password: z.string().min(1, "A senha é obrigatória")
@@ -66,30 +65,26 @@ export default function LoginPage() {
         }
       });
 
-      // 1. Pegamos os dados da resposta
       const { accessToken, expirationDate } = response.data;
 
       if (accessToken) {
         const expires = expirationDate ? new Date(expirationDate) : 1;
 
-        // 2. SALVANDO O COOKIE CORRETAMENTE
-        // path: '/' é essencial para o dashboard enxergar o token
         Cookies.set('auth_token', accessToken, { 
             expires: expires, 
             path: '/', 
-            secure: window.location.protocol === 'https:', // Só usa Secure se for HTTPS
+            secure: window.location.protocol === 'https:',
             sameSite: 'Lax'
         });
 
-        console.log("Login efetuado. Redirecionando...");
-        
-        // Pequeno delay para garantir que o navegador salvou o cookie
+        // Delay mínimo para garantir a escrita do cookie
         setTimeout(() => {
             router.push('/dashboard');
         }, 100);
         
       } else {
         setGeneralError("Erro: Credenciais válidas, mas sem token.");
+        setLoading(false);
       }
 
     } catch (error: any) {
@@ -104,7 +99,7 @@ export default function LoginPage() {
       } else {
         setGeneralError("Ocorreu um erro inesperado.");
       }
-      setLoading(false); // Só tira o loading se der erro
+      setLoading(false);
     }
   }
 
@@ -166,7 +161,7 @@ export default function LoginPage() {
             </div>
 
             {generalError && (
-              <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 text-sm font-medium rounded-r">
+              <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 text-sm font-medium rounded-r animate-fade-in">
                 {generalError}
               </div>
             )}
@@ -188,7 +183,7 @@ export default function LoginPage() {
                       ? 'border-red-300 focus:border-red-500 focus:ring-red-500/10' 
                       : 'border-gray-200 focus:border-orange-500 focus:ring-orange-500/10'}`}
                 />
-                {errors.username && <p className="mt-1 ml-1 text-sm text-red-500 font-medium">{errors.username}</p>}
+                {errors.username && <p className="mt-1 ml-1 text-sm text-red-500 font-medium animate-pulse">{errors.username}</p>}
               </div>
 
               <div>
@@ -231,15 +226,31 @@ export default function LoginPage() {
                     )}
                   </button>
                 </div>
-                {errors.password && <p className="mt-1 ml-1 text-sm text-red-500 font-medium">{errors.password}</p>}
+                {errors.password && <p className="mt-1 ml-1 text-sm text-red-500 font-medium animate-pulse">{errors.password}</p>}
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 px-6 text-lg font-bold text-white bg-gradient-to-r from-orange-600 to-orange-500 rounded-2xl shadow-xl shadow-orange-500/20 hover:shadow-orange-500/40 hover:-translate-y-0.5 focus:outline-none focus:ring-4 focus:ring-orange-200 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none mt-4"
+                className={`
+                  w-full py-4 px-6 text-lg font-bold text-white rounded-2xl shadow-xl transition-all duration-200 
+                  ${loading 
+                    ? 'bg-orange-400 cursor-not-allowed opacity-80' 
+                    : 'bg-gradient-to-r from-orange-600 to-orange-500 hover:shadow-orange-500/40 hover:-translate-y-0.5 focus:ring-4 focus:ring-orange-200 active:scale-95'
+                  }
+                `}
               >
-                {loading ? 'Acessando...' : 'Entrar no Sistema'}
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Acessando...
+                  </span>
+                ) : (
+                  'Entrar no Sistema'
+                )}
               </button>
 
               <div className="relative my-8">
