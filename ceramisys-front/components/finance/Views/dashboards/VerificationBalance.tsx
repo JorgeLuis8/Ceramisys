@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { FileBarChart, Filter, Download, TrendingUp, TrendingDown, Wallet, ArrowRightLeft, Loader2, Search, FileText } from 'lucide-react';
+import { FileBarChart, Filter, Download, TrendingUp, TrendingDown, Wallet, ArrowRightLeft, Loader2, Search, FileText, X, ChevronRight, Layers, Tag } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { api } from '@/lib/api';
 
-// --- HELPERS ---
+// --- ENUMS E HELPERS ---
 const PaymentMethodDescriptions: Record<number, string> = {
   0: "Dinheiro", 1: "CXPJ", 2: "BBJ", 3: "BBJN", 4: "CHEQUE", 5: "BradescoPJ", 6: "CXJ", 7: "Débito Automático"
+};
+
+const StatusDescriptions: Record<number, string> = {
+  0: "Pendente",
+  1: "Pago"
 };
 
 const formatMoney = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
@@ -22,29 +27,13 @@ const getCurrentMonthDates = () => {
 };
 
 // --- INTERFACES ---
-interface AccountItem {
-  accountName: string;
-  totalIncome: number;
-}
+interface DropdownItem { id: string; name: string; }
 
-interface CategoryItem {
-  categoryName: string;
-  totalExpense: number;
-}
-
-interface GroupItem {
-  groupName: string;
-  groupExpense: number;
-  categories: CategoryItem[];
-}
-
-interface ExtractItem {
-  accountName: string;
-  date: string;
-  description: string;
-  value: number;
-  type: string;
-}
+// Interfaces do Relatório (JSON)
+interface AccountItem { accountName: string; totalIncome: number; }
+interface CategoryItem { categoryName: string; totalExpense: number; }
+interface GroupItem { groupName: string; groupExpense: number; categories: CategoryItem[]; }
+interface ExtractItem { accountName: string; date: string; description: string; value: number; type: string; }
 
 interface BalanceResponse {
   startDate: string;
@@ -63,35 +52,67 @@ export function VerificationBalance() {
   const [pdfLoading, setPdfLoading] = useState(false);
   const [reportData, setReportData] = useState<BalanceResponse | null>(null);
 
-  // Filtros
+  // --- ESTADOS DOS FILTROS ---
   const { start, end } = getCurrentMonthDates();
   const [startDate, setStartDate] = useState(start);
   const [endDate, setEndDate] = useState(end);
-  const [paymentMethod, setPaymentMethod] = useState('');
   const [search, setSearch] = useState('');
+  
+  // Filtros de Seleção
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [status, setStatus] = useState('');
+  const [groupId, setGroupId] = useState('');
+  const [categoryId, setCategoryId] = useState('');
 
-  // --- EFEITO INICIAL ---
+  // Listas para os Dropdowns
+  const [groupsList, setGroupsList] = useState<DropdownItem[]>([]);
+  const [categoriesList, setCategoriesList] = useState<DropdownItem[]>([]);
+
+  // --- EFEITOS ---
   useEffect(() => {
-    fetchReport();
+    fetchFiltersData(); // Carrega as listas de Grupo/Categoria
+    fetchReport();      // Carrega o relatório inicial
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // --- API: GERAR RELATÓRIO NA TELA ---
+  // --- API: CARREGAR LISTAS DE FILTROS ---
+  const fetchFiltersData = async () => {
+    try {
+        // 1. Busca Categorias
+        const catRes = await api.get('/api/financial/launch-categories/paged', { params: { Page: 1, PageSize: 100 } });
+        if(catRes.data.items) setCategoriesList(catRes.data.items);
+
+        // 2. Busca Grupos (CORRIGIDO AQUI)
+        const groupRes = await api.get('/api/financial/launch-category-groups/paged', { params: { Page: 1, PageSize: 100 } }); 
+        if(groupRes.data.items) setGroupsList(groupRes.data.items);
+    } catch (error) {
+        console.error("Erro ao carregar filtros auxiliares", error);
+    }
+  };
+
+  // --- CONSTRUÇÃO DOS PARÂMETROS ---
+  const buildParams = () => {
+      return {
+        StartDate: startDate,
+        EndDate: endDate,
+        Search: search || undefined,
+        PaymentMethod: paymentMethod !== '' ? Number(paymentMethod) : undefined,
+        Status: status !== '' ? Number(status) : undefined,
+        GroupId: groupId || undefined,
+        CategoryId: categoryId || undefined
+      };
+  };
+
+  // --- API: GERAR RELATÓRIO ---
   const fetchReport = async () => {
     setLoading(true);
     try {
-      const params = {
-        StartDate: startDate,
-        EndDate: endDate,
-        PaymentMethod: paymentMethod !== '' ? Number(paymentMethod) : undefined,
-        Search: search || undefined
-      };
-
+      const params = buildParams();
       const response = await api.get('/api/financial/dashboard-financial/with-extract', { params });
       setReportData(response.data);
-
     } catch (error) {
       console.error("Erro ao gerar balancete", error);
+      alert("Não foi possível carregar o relatório.");
     } finally {
       setLoading(false);
     }
@@ -101,31 +122,22 @@ export function VerificationBalance() {
   const handleExportPdf = async () => {
     setPdfLoading(true);
     try {
-        const params = { 
-            StartDate: startDate, 
-            EndDate: endDate, 
-            PaymentMethod: paymentMethod !== '' ? Number(paymentMethod) : undefined,
-            Search: search || undefined
-        };
-        
+        const params = buildParams();
         const response = await api.get('/api/financial/dashboard-financial/trial-balance/pdf', { 
             params, 
-            responseType: 'blob' // Essencial para baixar arquivos
+            responseType: 'blob'
         });
 
-        // Verifica se retornou JSON de erro ao invés de blob
         if (response.data.type === 'application/json') {
             const text = await response.data.text();
-            const jsonError = JSON.parse(text);
-            alert(`Erro ao gerar PDF: ${jsonError.message || 'Erro desconhecido'}`);
+            alert("Erro ao gerar PDF: " + text);
             return;
         }
 
-        // Cria link de download
         const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', `balancete_${startDate}_${endDate}.pdf`);
+        link.setAttribute('download', `balancete_${startDate}.pdf`);
         document.body.appendChild(link);
         link.click();
         
@@ -140,6 +152,22 @@ export function VerificationBalance() {
     }
   };
 
+  // Limpar Filtros
+  const handleClearFilters = () => {
+      setSearch('');
+      setPaymentMethod('');
+      setStatus('');
+      setGroupId('');
+      setCategoryId('');
+      const { start, end } = getCurrentMonthDates();
+      setStartDate(start);
+      setEndDate(end);
+  };
+
+  // Estilos Comuns
+  const inputClass = "w-full px-3 py-2 border border-slate-300 rounded-lg outline-none text-xs bg-white text-slate-700 h-9";
+  const labelClass = "text-[10px] font-bold text-slate-500 uppercase mb-1 block";
+
   return (
     <div className="space-y-8 animate-fade-in p-6 pb-20 bg-slate-50 min-h-screen">
       
@@ -152,48 +180,85 @@ export function VerificationBalance() {
         </div>
       </div>
       
-      {/* --- FILTROS --- */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+      {/* --- ÁREA DE FILTROS COMPLETA --- */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+         
+         {/* Linha 1: Datas e Busca */}
+         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
              <div className="md:col-span-2">
-                 <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Buscar</label>
+                 <label className={labelClass}>Buscar (Descrição)</label>
                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16}/>
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14}/>
                     <input 
                         type="text" 
-                        className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg outline-none text-sm" 
+                        className={`${inputClass} pl-8`}
                         value={search} 
                         onChange={e => setSearch(e.target.value)}
-                        placeholder="Descrição..."
+                        placeholder="Pesquisar..."
+                        onKeyDown={e => e.key === 'Enter' && fetchReport()}
                     />
                  </div>
              </div>
+             <div>
+                 <label className={labelClass}>Data Início</label>
+                 <input type="date" className={inputClass} value={startDate} onChange={e => setStartDate(e.target.value)}/>
+             </div>
+             <div>
+                 <label className={labelClass}>Data Fim</label>
+                 <input type="date" className={inputClass} value={endDate} onChange={e => setEndDate(e.target.value)}/>
+             </div>
+         </div>
+
+         {/* Linha 2: Dropdowns Específicos */}
+         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
              
              <div>
-                 <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Conta / Método</label>
-                 <select 
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none text-sm bg-white text-slate-700"
-                    value={paymentMethod} 
-                    onChange={e => setPaymentMethod(e.target.value)}
-                 >
+                 <label className={labelClass}>Grupo</label>
+                 <div className="relative">
+                     <Layers className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14}/>
+                     <select className={`${inputClass} pl-8`} value={groupId} onChange={e => setGroupId(e.target.value)}>
+                         <option value="">Todos os Grupos</option>
+                         {groupsList.map(g => (<option key={g.id} value={g.id}>{g.name}</option>))}
+                     </select>
+                 </div>
+             </div>
+
+             <div>
+                 <label className={labelClass}>Categoria</label>
+                 <div className="relative">
+                     <Tag className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14}/>
+                     <select className={`${inputClass} pl-8`} value={categoryId} onChange={e => setCategoryId(e.target.value)}>
+                         <option value="">Todas as Categorias</option>
+                         {categoriesList.map(c => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                     </select>
+                 </div>
+             </div>
+
+             <div>
+                 <label className={labelClass}>Conta / Método</label>
+                 <select className={inputClass} value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
                      <option value="">Todas as Contas</option>
                      {Object.entries(PaymentMethodDescriptions).map(([id, label]) => (
                          <option key={id} value={id}>{label}</option>
                      ))}
                  </select>
              </div>
-             
+
              <div>
-                 <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Início</label>
-                 <input type="date" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none text-sm text-slate-700" value={startDate} onChange={e => setStartDate(e.target.value)}/>
-             </div>
-             <div>
-                 <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Fim</label>
-                 <input type="date" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none text-sm text-slate-700" value={endDate} onChange={e => setEndDate(e.target.value)}/>
+                 <label className={labelClass}>Status</label>
+                 <select className={inputClass} value={status} onChange={e => setStatus(e.target.value)}>
+                     <option value="">Todos</option>
+                     {Object.entries(StatusDescriptions).map(([id, label]) => (
+                         <option key={id} value={id}>{label}</option>
+                     ))}
+                 </select>
              </div>
          </div>
 
-         <div className="flex justify-end gap-2 mt-4">
+         {/* Botões de Ação */}
+         <div className="flex justify-end gap-2 mt-5 border-t border-slate-100 pt-4">
+             <Button variant="outline" icon={X} onClick={handleClearFilters}>Limpar</Button>
+             
              <Button 
                 variant="primary" 
                 icon={loading ? Loader2 : Filter} 
@@ -220,7 +285,7 @@ export function VerificationBalance() {
       {reportData && (
         <>
             {/* CARDS DE RESUMO (KPIs) */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-fade-in">
                 <div className="bg-emerald-50 border border-emerald-100 p-5 rounded-xl shadow-sm">
                     <div className="flex justify-between items-start mb-2">
                         <span className="text-emerald-700 font-bold text-xs uppercase tracking-wider">Entradas Totais</span>
@@ -288,19 +353,28 @@ export function VerificationBalance() {
                         ) : (
                             reportData.groups.map((group, idx) => (
                                 <div key={idx} className="border border-slate-100 rounded-lg overflow-hidden">
+                                    {/* CABEÇALHO DO GRUPO */}
                                     <div className="bg-slate-50 p-3 flex justify-between items-center">
-                                        <span className="font-bold text-slate-800 text-sm">{group.groupName}</span>
+                                        <span className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-slate-400"></div>
+                                            {group.groupName}
+                                        </span>
                                         <span className="font-bold text-red-600 text-sm">{formatMoney(group.groupExpense)}</span>
                                     </div>
-                                    <div className="divide-y divide-slate-50">
+                                    
+                                    {/* LISTA DE CATEGORIAS DENTRO DO GRUPO */}
+                                    <div className="bg-white divide-y divide-slate-50">
                                         {group.categories.map((cat, cIdx) => (
-                                            <div key={cIdx} className="flex justify-between items-center p-2 pl-4 text-xs hover:bg-white transition-colors">
+                                            <div key={cIdx} className="flex justify-between items-center p-2 pl-8 text-xs hover:bg-slate-50 transition-colors">
                                                 <span className="text-slate-500 flex items-center gap-2">
-                                                    <div className="w-1 h-1 rounded-full bg-slate-300"></div> {cat.categoryName}
+                                                    <ChevronRight size={12} className="text-slate-300"/> {cat.categoryName}
                                                 </span>
                                                 <span className="text-slate-600 font-medium">{formatMoney(cat.totalExpense)}</span>
                                             </div>
                                         ))}
+                                        {group.categories.length === 0 && (
+                                            <div className="p-2 text-center text-xs text-slate-300">Sem categorias vinculadas</div>
+                                        )}
                                     </div>
                                 </div>
                             ))
