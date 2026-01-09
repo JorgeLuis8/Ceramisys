@@ -114,7 +114,7 @@ export function Sidebar({ activeSection, onChangeSection, isOpen, toggleSidebar 
           
           {isOpen && (
             <span className="ml-3 font-bold text-gray-800 text-lg animate-fade-in">
-              CeramiSys
+              Ceramica Canelas
             </span>
           )}
 
