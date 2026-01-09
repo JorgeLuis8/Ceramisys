@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, ArrowDownCircle, Truck, Package, Plus, Search, Filter, X, Loader2, ChevronLeft, ChevronRight, CheckCircle2, Pencil, Undo2, Trash2, User, UserCircle } from 'lucide-react';
+import { Save, ArrowDownCircle, Truck, Package, Plus, Search, Filter, X, Loader2, ChevronLeft, ChevronRight, CheckCircle2, Pencil, Undo2, UserCircle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { TableAction } from '@/components/ui/TableAction';
 import { api } from '@/lib/api';
@@ -26,16 +26,16 @@ interface ProductEntry {
   id: string;
   productId: string; 
   productName: string;
-  categoryName?: string; // Adicionado do JSON
+  categoryName?: string;
   supplierId?: string; 
   supplierName?: string;
   quantity: number;
   unitPrice: number;
   entryDate: string; 
-  insertedBy?: string;   // Adicionado do JSON (Operador)
+  insertedBy?: string;
 }
 
-// --- COMPONENTE DE MODAL DE BUSCA (Reutilizável) ---
+// --- COMPONENTE DE MODAL DE BUSCA (ATUALIZADO) ---
 interface SearchModalProps<T> {
   isOpen: boolean;
   onClose: () => void;
@@ -49,61 +49,149 @@ function SearchModal<T>({ isOpen, onClose, title, fetchData, onSelect, renderIte
   const [items, setItems] = useState<T[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
+  
+  // PAGINAÇÃO
   const [page, setPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const pageSize = 5; 
 
   useEffect(() => {
-    if (isOpen) { loadData(); } 
-    else { setSearch(''); setPage(1); setItems([]); }
+    if (isOpen) { 
+      loadData(); 
+    } else { 
+      setSearch(''); 
+      setPage(1); 
+      setItems([]); 
+      setTotalItems(0);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, page]);
+  }, [isOpen, page]); 
 
   const loadData = async (termOverride?: string) => {
     setLoading(true);
     try {
       const term = termOverride !== undefined ? termOverride : search;
-      const response = await fetchData({ Page: page, PageSize: 5, Search: term, OrderBy: 'Name', Ascending: true });
-      if (response.data.items) setItems(response.data.items);
-      else setItems([]);
-    } catch (error) { console.error("Erro modal", error); } 
-    finally { setLoading(false); }
+      
+      const params = { 
+        Page: page, 
+        PageSize: pageSize, 
+        Search: term, 
+        OrderBy: 'Name', 
+        Ascending: true 
+      };
+
+      const response = await fetchData(params);
+      
+      if (response.data) {
+          const list = response.data.items || [];
+          setItems(list);
+          const total = response.data.totalItems ?? response.data.totalCount ?? response.data.count ?? 0;
+          setTotalItems(total);
+      } else {
+          setItems([]);
+          setTotalItems(0);
+      }
+    } catch (error) { 
+      console.error("Erro modal", error); 
+      setItems([]);
+    } finally { 
+      setLoading(false); 
+    }
   };
 
-  const handleSearchKey = (e: React.KeyboardEvent) => { if (e.key === 'Enter') { setPage(1); loadData(); } };
+  const handleSearchKey = (e: React.KeyboardEvent) => { 
+    if (e.key === 'Enter') { 
+      setPage(1); 
+      loadData(); 
+    } 
+  };
+
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const hasNextPage = page < totalPages;
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+        
+        {/* Header */}
         <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
           <h3 className="font-bold text-slate-800">{title}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-red-500 transition-colors"><X size={20}/></button>
         </div>
+        
+        {/* Busca */}
         <div className="p-4 border-b border-slate-100">
             <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input autoFocus type="text" className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)} onKeyDown={handleSearchKey} />
+                <input 
+                  autoFocus 
+                  type="text" 
+                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" 
+                  placeholder="Buscar..." 
+                  value={search} 
+                  onChange={e => setSearch(e.target.value)} 
+                  onKeyDown={handleSearchKey} 
+                />
             </div>
         </div>
-        <div className="flex-1 overflow-y-auto p-2 space-y-2 bg-slate-50/50">
-            {loading ? <div className="flex justify-center p-8 text-emerald-600"><Loader2 className="animate-spin"/></div> : items.length === 0 ? <div className="text-center p-8 text-slate-400">Nada encontrado.</div> : items.map((item, idx) => (
+
+        {/* Lista */}
+        <div className="flex-1 overflow-y-auto p-2 space-y-2 bg-slate-50/50 min-h-[250px]">
+            {loading ? (
+                <div className="flex flex-col items-center justify-center p-8 text-emerald-600 gap-2 h-full">
+                    <Loader2 className="animate-spin" />
+                    <span className="text-xs font-medium">Carregando...</span>
+                </div>
+            ) : items.length === 0 ? (
+                <div className="text-center p-8 text-slate-400 h-full flex items-center justify-center">
+                    Nada encontrado.
+                </div>
+            ) : (
+                items.map((item, idx) => (
                 <div key={idx} onClick={() => { onSelect(item); onClose(); }} className="bg-white p-3 rounded-lg border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 cursor-pointer transition-all flex items-center justify-between group">
                     <div className="flex-1">{renderItem(item)}</div>
                     <div className="opacity-0 group-hover:opacity-100 text-emerald-600"><CheckCircle2 size={18}/></div>
                 </div>
-            ))}
+            )))}
         </div>
+
+        {/* FOOTER - PAGINAÇÃO LARANJA CLARO */}
         <div className="p-3 border-t border-slate-100 flex justify-between items-center text-sm bg-white">
-            <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="p-1 disabled:opacity-30"><ChevronLeft/></button>
-            <span className="text-slate-500">Página {page}</span>
-            <button disabled={items.length < 5} onClick={() => setPage(p => p + 1)} className="p-1 disabled:opacity-30"><ChevronRight/></button>
+            <button 
+                disabled={page === 1 || loading} 
+                onClick={() => setPage(p => Math.max(1, p - 1))} 
+                // AQUI ESTÃO AS CORES LARANJA CLARO
+                className="p-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors shadow-sm"
+                title="Anterior"
+            >
+                <ChevronLeft size={20} strokeWidth={2.5}/>
+            </button>
+            
+            <span className="text-slate-500 font-medium bg-slate-50 px-3 py-1 rounded-full text-xs border border-slate-100">
+                {totalItems > 0 
+                  ? `Página ${page} de ${totalPages}` 
+                  : '-'
+                }
+            </span>
+            
+            <button 
+                disabled={!hasNextPage || loading} 
+                onClick={() => setPage(p => p + 1)} 
+                // AQUI ESTÃO AS CORES LARANJA CLARO
+                className="p-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors shadow-sm"
+                title="Próxima"
+            >
+                <ChevronRight size={20} strokeWidth={2.5}/>
+            </button>
         </div>
       </div>
     </div>
   );
 }
 
-// --- COMPONENTE PRINCIPAL ---
+// --- COMPONENTE PRINCIPAL (STOCK IN) ---
 export function StockIn() {
   const [loading, setLoading] = useState(false);
   const [tableLoading, setTableLoading] = useState(false);
@@ -153,7 +241,10 @@ export function StockIn() {
       };
       const response = await api.get('/api/products-entry/paged', { params });
       const data = response.data;
-      if (data.items) { setEntries(data.items); setTotalItems(data.totalCount || 0); }
+      if (data.items) { 
+        setEntries(data.items); 
+        setTotalItems(data.totalItems ?? data.totalCount ?? 0); 
+      }
       else if (Array.isArray(data)) { setEntries(data); setTotalItems(data.length); }
       else { setEntries([]); setTotalItems(0); }
     } catch (error) { console.error("Erro entries", error); } 
@@ -243,7 +334,7 @@ export function StockIn() {
         <div><h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><ArrowDownCircle className="text-emerald-600" /> Entrada de Estoque</h1><p className="text-slate-500">Registre recebimento de mercadorias.</p></div>
       </div>
       
-      {/* FORMULÁRIO (COM REF) */}
+      {/* FORMULÁRIO */}
       <div 
         ref={formRef} 
         className={`rounded-xl shadow-sm border overflow-hidden transition-colors duration-300 ${editingId ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200'}`}
@@ -271,7 +362,7 @@ export function StockIn() {
                <div className="flex gap-2">{selectedSupplier && <button onClick={() => setSelectedSupplier(null)} className="p-1 hover:bg-white rounded-full text-red-500"><X size={16}/></button>}<Button variant="soft" size="sm" onClick={() => setIsSupplierModalOpen(true)}>BUSCAR</Button></div>
             </div>
 
-            {/* Seletor de Produto (Bloqueado na Edição) */}
+            {/* Seletor de Produto */}
             <div className={`flex items-center justify-between px-4 py-3 border rounded-lg transition-colors ${selectedProduct ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-300'} ${editingId ? 'opacity-70 cursor-not-allowed' : ''}`}>
                <div className="flex items-center gap-3 overflow-hidden"><Package size={18} className={selectedProduct ? "text-emerald-600" : "text-slate-500"} /> <div className="flex flex-col"><span className={`text-sm font-bold ${selectedProduct ? "text-emerald-900" : "text-slate-500 italic"}`}>{selectedProduct ? selectedProduct.name : "Selecionar Produto..."}</span></div></div>
                <div className="flex gap-2">
@@ -298,7 +389,7 @@ export function StockIn() {
         </div>
       </div>
       
-      {/* HISTÓRICO */}
+      {/* HISTÓRICO - TABELA PRINCIPAL */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-6 border-b border-slate-200">
             <h2 className="text-lg font-bold text-slate-800 mb-6">Histórico de Entradas</h2>
@@ -372,8 +463,24 @@ export function StockIn() {
         </div>
       </div>
 
-      <SearchModal<Product> isOpen={isProductModalOpen} onClose={() => setIsProductModalOpen(false)} title="Buscar Produto" fetchData={(params) => api.get('/api/products/paged', { params })} onSelect={setSelectedProduct} renderItem={(prod) => (<div><p className="font-bold text-slate-800">{prod.name}</p><p className="text-xs text-slate-500">Cód: {prod.code}</p></div>)} />
-      <SearchModal<Supplier> isOpen={isSupplierModalOpen} onClose={() => setIsSupplierModalOpen(false)} title="Buscar Fornecedor" fetchData={(params) => api.get('/api/supplier/paged', { params })} onSelect={setSelectedSupplier} renderItem={(sup) => (<div><p className="font-bold text-slate-800">{sup.name}</p><p className="text-xs text-slate-500">CNPJ: {sup.cnpj}</p></div>)} />
+      {/* MODAIS */}
+      <SearchModal<Product> 
+        isOpen={isProductModalOpen} 
+        onClose={() => setIsProductModalOpen(false)} 
+        title="Buscar Produto" 
+        fetchData={(params) => api.get('/api/products/paged', { params })} 
+        onSelect={setSelectedProduct} 
+        renderItem={(prod) => (<div><p className="font-bold text-slate-800">{prod.name}</p><p className="text-xs text-slate-500">Cód: {prod.code}</p></div>)} 
+      />
+      
+      <SearchModal<Supplier> 
+        isOpen={isSupplierModalOpen} 
+        onClose={() => setIsSupplierModalOpen(false)} 
+        title="Buscar Fornecedor" 
+        fetchData={(params) => api.get('/api/supplier/paged', { params })} 
+        onSelect={setSelectedSupplier} 
+        renderItem={(sup) => (<div><p className="font-bold text-slate-800">{sup.name}</p><p className="text-xs text-slate-500">CNPJ: {sup.cnpj}</p></div>)} 
+      />
     </div>
   );
 }

@@ -1,6 +1,8 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import { 
-  DollarSign, TrendingUp, TrendingDown, Wallet, 
+  TrendingUp, TrendingDown, Wallet, 
   Loader2, Calendar, AlertCircle 
 } from 'lucide-react';
 import { 
@@ -8,9 +10,9 @@ import {
 } from 'recharts';
 import { api } from '@/lib/api';
 
-// --- INTERFACES ---
+// --- INTERFACES (Baseado no JSON da API) ---
 interface MonthlyChartItem {
-  month: string; // "2025-02"
+  month: string; // ex: "2025-02"
   totalIncome: number;
   totalExpense: number;
 }
@@ -33,11 +35,23 @@ interface DashboardSummary {
 const formatMoney = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
 const formatMonth = (dateStr: string) => {
-    // Converte "2025-02" para "Fev/25"
-    if (!dateStr) return '';
-    const [year, month] = dateStr.split('-');
-    const date = new Date(parseInt(year), parseInt(month) - 1, 1);
-    return date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace('.', '');
+  // Converte "2025-02" para "Fev/25"
+  if (!dateStr) return '';
+  const parts = dateStr.split('-'); // [2025, 02]
+  if (parts.length !== 2) return dateStr;
+  
+  const year = parseInt(parts[0]);
+  const month = parseInt(parts[1]) - 1; // JS meses são 0-11
+  
+  const date = new Date(year, month, 1);
+  return date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace('.', '');
+};
+
+const formatDate = (dateStr: string) => {
+    if (!dateStr) return 'N/A';
+    // Garante que o timezone não altere a data visualmente
+    const date = new Date(dateStr + 'T00:00:00'); 
+    return date.toLocaleDateString('pt-BR');
 };
 
 export function FinanceHome() {
@@ -69,7 +83,7 @@ export function FinanceHome() {
 
   if (!data) return null;
 
-  // Configuração dos Cards com dados reais
+  // Configuração dos Cards com dados da API
   const kpis = [
     { 
         label: 'Saldo Atual', 
@@ -96,12 +110,12 @@ export function FinanceHome() {
         sub: 'Saídas recentes'
     },
     { 
-        label: 'A Pagar (Pendente)', 
-        val: data.pendingPayments, 
+        label: 'Contas Pendentes', 
+        val: data.pendingPayments, // Valor principal: A Pagar
         icon: AlertCircle, 
         color: 'text-orange-600', 
         bg: 'bg-orange-50',
-        sub: `${formatMoney(data.pendingReceivables)} a receber`
+        sub: `+ ${formatMoney(data.pendingReceivables)} a receber` // Subtexto: A Receber
     }
   ];
 
@@ -116,7 +130,7 @@ export function FinanceHome() {
         </div>
         <div className="flex items-center gap-2 text-xs font-medium text-slate-500 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
             <Calendar size={14} />
-            Último lançamento: {data.lastLaunchDate ? new Date(data.lastLaunchDate).toLocaleDateString('pt-BR') : 'N/A'}
+            Último lançamento: {formatDate(data.lastLaunchDate)}
         </div>
       </div>
       
@@ -128,7 +142,8 @@ export function FinanceHome() {
                  <div className={`p-3 rounded-xl ${kpi.bg} ${kpi.color}`}>
                      <kpi.icon size={22} />
                  </div>
-                 {kpi.val < 0 && idx === 0 && <span className="text-xs font-bold text-red-500 bg-red-50 px-2 py-1 rounded">Negativo</span>}
+                 {/* Lógica simples para indicar saldo negativo no primeiro card */}
+                 {idx === 0 && kpi.val < 0 && <span className="text-xs font-bold text-red-500 bg-red-50 px-2 py-1 rounded">Negativo</span>}
              </div>
              <div>
                  <p className="text-sm font-medium text-gray-500">{kpi.label}</p>
@@ -141,10 +156,10 @@ export function FinanceHome() {
         ))}
       </div>
 
-      {/* GRÁFICO ANUAL */}
+      {/* ÁREA GRÁFICA + RESUMOS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
-          {/* Gráfico Principal */}
+          {/* Gráfico Principal (Mensal) */}
           <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
               <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
                   <TrendingUp size={18} className="text-blue-500"/> Evolução Financeira (12 Meses)
@@ -171,6 +186,7 @@ export function FinanceHome() {
                             formatter={(value: number | undefined) => value !== undefined ? formatMoney(value) : ''}
                             contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                             labelFormatter={formatMonth}
+                            cursor={{ fill: '#f8fafc' }}
                           />
                           <Legend wrapperStyle={{ paddingTop: '20px' }}/>
                           <Bar name="Receitas" dataKey="totalIncome" fill="#10b981" radius={[4, 4, 0, 0]} barSize={20} />
@@ -185,9 +201,12 @@ export function FinanceHome() {
               <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-lg relative overflow-hidden">
                   <div className="relative z-10">
                       <p className="text-slate-300 text-sm font-medium mb-1">Balanço do Ano</p>
-                      <h2 className="text-3xl font-bold">{formatMoney(data.balanceYear)}</h2>
+                      <h2 className={`text-3xl font-bold ${data.balanceYear < 0 ? 'text-red-300' : 'text-white'}`}>
+                        {formatMoney(data.balanceYear)}
+                      </h2>
+                      
                       <div className="mt-6 space-y-3">
-                          <div className="flex justify-between text-sm">
+                          <div className="flex justify-between text-sm border-b border-slate-700/50 pb-2">
                               <span className="text-slate-400">Total Receitas</span>
                               <span className="text-emerald-400 font-bold">+ {formatMoney(data.totalIncomeYear)}</span>
                           </div>
@@ -197,7 +216,7 @@ export function FinanceHome() {
                           </div>
                       </div>
                   </div>
-                  {/* Decorativo */}
+                  {/* Elemento Decorativo */}
                   <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-blue-500 rounded-full opacity-10 blur-2xl"></div>
               </div>
 
@@ -207,7 +226,7 @@ export function FinanceHome() {
                       <span className="text-4xl font-bold text-blue-600">{data.customersWithLaunches}</span>
                       <span className="text-sm text-slate-500 mb-1">com lançamentos</span>
                   </div>
-                  <p className="text-xs text-slate-400 mt-2">Clientes movimentaram o caixa no período.</p>
+                  <p className="text-xs text-slate-400 mt-2">Clientes que movimentaram o caixa.</p>
               </div>
           </div>
       </div>

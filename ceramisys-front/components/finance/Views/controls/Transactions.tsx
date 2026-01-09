@@ -3,7 +3,7 @@ import {
   Save, Search, Banknote, ArrowUpCircle, ArrowDownCircle, 
   Loader2, Paperclip, User, Tag, X, Check, FileText, 
   Filter, AlertCircle, ChevronLeft, ChevronRight, Edit, Trash2, 
-  Image as ImageIcon, History, Clock 
+  Image as ImageIcon, History, Clock, CheckCircle2 
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { TableAction } from '@/components/ui/TableAction';
@@ -62,6 +62,161 @@ interface HistoryItem {
   changeType: string;
 }
 
+// --- COMPONENTE DE MODAL DE BUSCA (COM PAGINAÇÃO LARANJA) ---
+interface SearchModalProps<T> {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  fetchData: (params: any) => Promise<any>;
+  onSelect: (item: T) => void;
+  renderItem: (item: T) => React.ReactNode;
+}
+
+function SearchModal<T>({ isOpen, onClose, title, fetchData, onSelect, renderItem }: SearchModalProps<T>) {
+  const [items, setItems] = useState<T[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  
+  // PAGINAÇÃO
+  const [page, setPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const pageSize = 5; 
+
+  useEffect(() => {
+    if (isOpen) { 
+      loadData(); 
+    } else { 
+      setSearch(''); 
+      setPage(1); 
+      setItems([]); 
+      setTotalItems(0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, page]); 
+
+  const loadData = async (termOverride?: string) => {
+    setLoading(true);
+    try {
+      const term = termOverride !== undefined ? termOverride : search;
+      
+      const params = { 
+        Page: page, 
+        PageSize: pageSize, 
+        Search: term
+      };
+
+      const response = await fetchData(params);
+      
+      if (response.data) {
+          const list = response.data.items || [];
+          setItems(list);
+          const total = response.data.totalItems ?? response.data.totalCount ?? response.data.count ?? 0;
+          setTotalItems(total);
+      } else {
+          setItems([]);
+          setTotalItems(0);
+      }
+    } catch (error) { 
+      console.error("Erro modal", error); 
+      setItems([]);
+    } finally { 
+      setLoading(false); 
+    }
+  };
+
+  const handleSearchKey = (e: React.KeyboardEvent) => { 
+    if (e.key === 'Enter') { 
+      setPage(1); 
+      loadData(); 
+    } 
+  };
+
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const hasNextPage = page < totalPages;
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+        
+        {/* Header */}
+        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+          <h3 className="font-bold text-slate-800">{title}</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-red-500 transition-colors"><X size={20}/></button>
+        </div>
+        
+        {/* Busca */}
+        <div className="p-4 border-b border-slate-100">
+            <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input 
+                  autoFocus 
+                  type="text" 
+                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" 
+                  placeholder="Buscar..." 
+                  value={search} 
+                  onChange={e => setSearch(e.target.value)} 
+                  onKeyDown={handleSearchKey} 
+                />
+            </div>
+        </div>
+
+        {/* Lista */}
+        <div className="flex-1 overflow-y-auto p-2 space-y-2 bg-slate-50/50 min-h-[250px]">
+            {loading ? (
+                <div className="flex flex-col items-center justify-center p-8 text-blue-600 gap-2 h-full">
+                    <Loader2 className="animate-spin" />
+                    <span className="text-xs font-medium">Carregando...</span>
+                </div>
+            ) : items.length === 0 ? (
+                <div className="text-center p-8 text-slate-400 h-full flex items-center justify-center">
+                    Nada encontrado.
+                </div>
+            ) : (
+                items.map((item, idx) => (
+                <div key={idx} onClick={() => { onSelect(item); onClose(); }} className="bg-white p-3 rounded-lg border border-slate-200 hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition-all flex items-center justify-between group">
+                    <div className="flex-1">{renderItem(item)}</div>
+                    <div className="opacity-0 group-hover:opacity-100 text-blue-600"><CheckCircle2 size={18}/></div>
+                </div>
+            )))}
+        </div>
+
+        {/* FOOTER - PAGINAÇÃO LARANJA CLARO */}
+        <div className="p-3 border-t border-slate-100 flex justify-between items-center text-sm bg-white">
+            <button 
+                disabled={page === 1 || loading} 
+                onClick={() => setPage(p => Math.max(1, p - 1))} 
+                // BOTÃO LARANJA AQUI
+                className="p-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors shadow-sm"
+                title="Anterior"
+            >
+                <ChevronLeft size={20} strokeWidth={2.5}/>
+            </button>
+            
+            <span className="text-slate-500 font-medium bg-slate-50 px-3 py-1 rounded-full text-xs border border-slate-100">
+                {totalItems > 0 
+                  ? `Página ${page} de ${totalPages}` 
+                  : '-'
+                }
+            </span>
+            
+            <button 
+                disabled={!hasNextPage || loading} 
+                onClick={() => setPage(p => p + 1)} 
+                // BOTÃO LARANJA AQUI
+                className="p-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors shadow-sm"
+                title="Próxima"
+            >
+                <ChevronRight size={20} strokeWidth={2.5}/>
+            </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- COMPONENTE PRINCIPAL ---
 export function Transactions() {
   const [listLoading, setListLoading] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -101,15 +256,13 @@ export function Transactions() {
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   // Filtros do Histórico
-  const [histStartDate, setHistStartDate] = useState(new Date().toISOString().split('T')[0]); // Padrão: Hoje
-  const [histEndDate, setHistEndDate] = useState(new Date().toISOString().split('T')[0]);     // Padrão: Hoje
-  const [histType, setHistType] = useState(''); // Todos
+  const [histStartDate, setHistStartDate] = useState(new Date().toISOString().split('T')[0]); 
+  const [histEndDate, setHistEndDate] = useState(new Date().toISOString().split('T')[0]);     
+  const [histType, setHistType] = useState(''); 
 
-  // --- MODAIS ---
-  const [modalOpen, setModalOpen] = useState<'category' | 'customer' | null>(null);
-  const [modalList, setModalList] = useState<any[]>([]);
-  const [modalLoading, setModalLoading] = useState(false);
-  const [modalSearch, setModalSearch] = useState('');
+  // --- MODAIS (Controladas por Estado Simples) ---
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
 
   // --- EFEITOS ---
   useEffect(() => {
@@ -118,15 +271,9 @@ export function Transactions() {
   }, [page]);
 
   useEffect(() => {
-    fetchLaunchHistory(); // Busca histórico ao abrir a tela
+    fetchLaunchHistory(); 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (modalOpen === 'category') fetchCategories();
-    if (modalOpen === 'customer') fetchCustomers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modalOpen, modalSearch]);
 
   // --- API: LISTAGEM PRINCIPAL ---
   const fetchLaunches = async (isReset = false) => {
@@ -144,7 +291,8 @@ export function Transactions() {
         const response = await api.get('/api/financial/launch/paged', { params });
         if (response.data.items) {
             setLaunches(response.data.items);
-            setTotalItems(response.data.totalItems || 0);
+            // Corrige leitura do total se vier diferente
+            setTotalItems(response.data.totalItems ?? response.data.totalCount ?? 0);
         } else {
             setLaunches([]);
             setTotalItems(0);
@@ -161,7 +309,7 @@ export function Transactions() {
             EndDate: histEndDate || undefined,
             Type: histType ? Number(histType) : undefined,
             Page: 1,
-            PageSize: 50 // Limite maior para o histórico
+            PageSize: 50 
         };
         const response = await api.get('/api/financial/launch/history', { params });
         if (response.data.items) {
@@ -176,32 +324,13 @@ export function Transactions() {
     }
   };
 
-  // Helpers do Histórico
   const handleHistFilter = () => fetchLaunchHistory();
   const handleHistClear = () => {
       const today = new Date().toISOString().split('T')[0];
       setHistStartDate(today);
       setHistEndDate(today);
       setHistType('');
-      // Pequeno delay para o estado atualizar antes de chamar a API, ou chame explicitamente
       setTimeout(() => fetchLaunchHistory(), 50); 
-  };
-
-  // ... (Funções de Modal e Delete iguais ao anterior) ...
-  const fetchCategories = async () => {
-    setModalLoading(true);
-    try {
-        const res = await api.get('/api/financial/launch-categories/paged', { params: { Page: 1, PageSize: 20, Search: modalSearch } });
-        setModalList(res.data.items || []);
-    } catch (e) { console.error(e); } finally { setModalLoading(false); }
-  };
-
-  const fetchCustomers = async () => {
-    setModalLoading(true);
-    try {
-        const res = await api.get('/api/financial/customer/paged', { params: { Page: 1, PageSize: 20, Search: modalSearch } });
-        setModalList(res.data.items || []);
-    } catch (e) { console.error(e); } finally { setModalLoading(false); }
   };
 
   const handleDelete = async (id: string) => {
@@ -335,11 +464,28 @@ export function Transactions() {
             <div className="md:col-span-3"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Descrição</label><input type="text" className={inputClass} value={description} onChange={e => setDescription(e.target.value)} /></div>
             <div className="md:col-span-1"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Valor (R$)</label><input type="number" className={`${inputClass} font-bold text-lg ${formType === LaunchType.Income ? 'text-emerald-600' : 'text-red-600'}`} placeholder="0,00" value={amount} onChange={e => setAmount(e.target.value)} /></div>
             
+            {/* SELETORES QUE ABREM MODAL */}
             {formType === LaunchType.Expense && (
-                <div className="md:col-span-4 animate-fade-in"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Categoria da Despesa</label><div onClick={() => { setModalOpen('category'); setModalSearch(''); }} className="cursor-pointer relative group"><div className="w-full px-4 py-2.5 border border-slate-300 rounded-lg bg-slate-50 flex items-center justify-between group-hover:border-blue-400 transition-colors"><span className={selectedCategory ? "text-slate-800 font-medium" : "text-slate-400 italic"}>{selectedCategory ? selectedCategory.name : "Selecione a categoria..."}</span><Tag className="text-slate-400" size={18}/></div></div></div>
+                <div className="md:col-span-4 animate-fade-in">
+                    <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Categoria da Despesa</label>
+                    <div onClick={() => setIsCategoryModalOpen(true)} className="cursor-pointer relative group">
+                        <div className="w-full px-4 py-2.5 border border-slate-300 rounded-lg bg-slate-50 flex items-center justify-between group-hover:border-blue-400 transition-colors">
+                            <span className={selectedCategory ? "text-slate-800 font-medium" : "text-slate-400 italic"}>{selectedCategory ? selectedCategory.name : "Selecione a categoria..."}</span>
+                            <Tag className="text-slate-400" size={18}/>
+                        </div>
+                    </div>
+                </div>
             )}
             {formType === LaunchType.Income && (
-                <div className="md:col-span-4 animate-fade-in"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Cliente (Pagador)</label><div onClick={() => { setModalOpen('customer'); setModalSearch(''); }} className="cursor-pointer relative group"><div className="w-full px-4 py-2.5 border border-slate-300 rounded-lg bg-slate-50 flex items-center justify-between group-hover:border-blue-400 transition-colors"><span className={selectedCustomer ? "text-slate-800 font-medium" : "text-slate-400 italic"}>{selectedCustomer ? selectedCustomer.name : "Selecione o cliente..."}</span><User className="text-slate-400" size={18}/></div></div></div>
+                <div className="md:col-span-4 animate-fade-in">
+                    <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Cliente (Pagador)</label>
+                    <div onClick={() => setIsCustomerModalOpen(true)} className="cursor-pointer relative group">
+                        <div className="w-full px-4 py-2.5 border border-slate-300 rounded-lg bg-slate-50 flex items-center justify-between group-hover:border-blue-400 transition-colors">
+                            <span className={selectedCustomer ? "text-slate-800 font-medium" : "text-slate-400 italic"}>{selectedCustomer ? selectedCustomer.name : "Selecione o cliente..."}</span>
+                            <User className="text-slate-400" size={18}/>
+                        </div>
+                    </div>
+                </div>
             )}
 
             <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Data Lançamento</label><input type="date" className={inputClass} value={launchDate} onChange={e => setLaunchDate(e.target.value)} /></div>
@@ -429,26 +575,37 @@ export function Transactions() {
                 </tbody>
             </table>
          </div>
-         {/* Paginação */}
+         
+         {/* PAGINAÇÃO DA LISTA PRINCIPAL (LARANJA CLARO) */}
          <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
             <span className="text-sm text-slate-500">Total: <strong>{totalItems}</strong></span>
             <div className="flex items-center gap-2">
-                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1 || listLoading} className="p-2 border border-slate-300 rounded bg-white hover:bg-slate-50 disabled:opacity-50"><ChevronLeft size={16}/></button>
-                <span className="text-sm px-2">{page} de {totalPages || 1}</span>
-                <button onClick={() => setPage(p => (totalPages && p < totalPages ? p + 1 : p))} disabled={page >= totalPages || listLoading} className="p-2 border border-slate-300 rounded bg-white hover:bg-slate-50 disabled:opacity-50"><ChevronRight size={16}/></button>
+                <button 
+                    onClick={() => setPage(p => Math.max(1, p - 1))} 
+                    disabled={page === 1 || listLoading} 
+                    className="p-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors shadow-sm"
+                >
+                    <ChevronLeft size={16}/>
+                </button>
+                <span className="text-sm px-2 text-slate-600 font-medium">{page} de {totalPages || 1}</span>
+                <button 
+                    onClick={() => setPage(p => (totalPages && p < totalPages ? p + 1 : p))} 
+                    disabled={page >= totalPages || listLoading} 
+                    className="p-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors shadow-sm"
+                >
+                    <ChevronRight size={16}/>
+                </button>
             </div>
          </div>
       </div>
 
-      {/* --- TABELA 2: HISTÓRICO DE LANÇAMENTOS (NOVA SEÇÃO COM FILTROS) --- */}
+      {/* --- TABELA 2: HISTÓRICO DE LANÇAMENTOS --- */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mt-8 animate-fade-in">
          <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col md:flex-row gap-4 justify-between items-end">
              <div className="flex-1 w-full">
                  <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-3">
                     <History className="text-purple-600"/> Histórico de Lançamentos
                  </h3>
-                 
-                 {/* FILTROS DO HISTÓRICO */}
                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                      <div>
                         <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">De</label>
@@ -495,21 +652,9 @@ export function Transactions() {
                     ) : (
                         historyItems.map((item) => (
                             <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                                <td className="p-4 text-center text-xs font-mono text-slate-500">
-                                    <div className="flex items-center justify-center gap-1">
-                                        <Clock size={12}/> {formatTime(item.createdOn)}
-                                    </div>
-                                </td>
+                                <td className="p-4 text-center text-xs font-mono text-slate-500"><div className="flex items-center justify-center gap-1"><Clock size={12}/> {formatTime(item.createdOn)}</div></td>
                                 <td className="p-4 text-center">
-                                    {item.type === 1 ? (
-                                        <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full text-[10px] font-bold">
-                                            <ArrowUpCircle size={10} /> Rec
-                                        </span>
-                                    ) : (
-                                        <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 px-2 py-1 rounded-full text-[10px] font-bold">
-                                            <ArrowDownCircle size={10} /> Desp
-                                        </span>
-                                    )}
+                                    {item.type === 1 ? (<span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full text-[10px] font-bold"><ArrowUpCircle size={10} /> Rec</span>) : (<span className="inline-flex items-center gap-1 bg-red-100 text-red-700 px-2 py-1 rounded-full text-[10px] font-bold"><ArrowDownCircle size={10} /> Desp</span>)}
                                 </td>
                                 <td className="p-4 font-medium text-slate-800 text-xs">{item.description}</td>
                                 <td className="p-4 text-xs text-slate-500">
@@ -518,17 +663,9 @@ export function Transactions() {
                                         <span className="text-slate-400">{item.customerName || 'S/ Cliente'}</span>
                                     </div>
                                 </td>
-                                <td className="p-4 text-xs text-slate-600 font-medium">
-                                    {item.paymentMethod}
-                                </td>
-                                <td className="p-4 text-center">
-                                     <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded border border-slate-200">
-                                        {item.changeType}
-                                     </span>
-                                </td>
-                                <td className={`p-4 text-right font-bold text-sm ${item.type === 1 ? 'text-emerald-600' : 'text-red-600'}`}>
-                                    {formatMoney(item.amount)}
-                                </td>
+                                <td className="p-4 text-xs text-slate-600 font-medium">{item.paymentMethod}</td>
+                                <td className="p-4 text-center"><span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded border border-slate-200">{item.changeType}</span></td>
+                                <td className={`p-4 text-right font-bold text-sm ${item.type === 1 ? 'text-emerald-600' : 'text-red-600'}`}>{formatMoney(item.amount)}</td>
                             </tr>
                         ))
                     )}
@@ -537,34 +674,24 @@ export function Transactions() {
          </div>
       </div>
 
-      {/* --- MODAL GENÉRICO --- */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh]">
-                {/* ... (Conteúdo do Modal igual ao anterior) ... */}
-                <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                        {modalOpen === 'category' ? <Tag className="text-blue-600" size={20}/> : <User className="text-blue-600" size={20}/>}
-                        {modalOpen === 'category' ? 'Selecionar Categoria' : 'Selecionar Cliente'}
-                    </h3>
-                    <button onClick={() => { setModalOpen(null); setModalSearch(''); }} className="text-slate-400 hover:text-red-500"><X size={20}/></button>
-                </div>
-                <div className="p-4 border-b border-slate-100">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                        <input className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded text-sm outline-none" placeholder="Buscar..." value={modalSearch} onChange={e => setModalSearch(e.target.value)} autoFocus />
-                    </div>
-                </div>
-                <div className="overflow-y-auto p-2 space-y-1 flex-1">
-                    {modalLoading ? <div className="flex justify-center p-4"><Loader2 className="animate-spin text-blue-500"/></div> : modalList.length === 0 ? <p className="text-center text-sm text-slate-400 p-4">Nenhum resultado.</p> : (
-                        modalList.map(item => (
-                            <button key={item.id} onClick={() => { if(modalOpen === 'category') setSelectedCategory(item); if(modalOpen === 'customer') setSelectedCustomer(item); setModalOpen(null); setModalSearch(''); }} className="w-full text-left px-4 py-3 rounded text-sm hover:bg-slate-50 text-slate-700">{item.name}</button>
-                        ))
-                    )}
-                </div>
-            </div>
-        </div>
-      )}
+      {/* --- MODAIS DE BUSCA (COM PAGINAÇÃO) --- */}
+      <SearchModal<CategoryItem> 
+        isOpen={isCategoryModalOpen} 
+        onClose={() => setIsCategoryModalOpen(false)} 
+        title="Buscar Categoria" 
+        fetchData={(params) => api.get('/api/financial/launch-categories/paged', { params })} 
+        onSelect={setSelectedCategory} 
+        renderItem={(cat) => (<div className="font-bold text-slate-800">{cat.name}</div>)} 
+      />
+      
+      <SearchModal<CustomerItem> 
+        isOpen={isCustomerModalOpen} 
+        onClose={() => setIsCustomerModalOpen(false)} 
+        title="Buscar Cliente" 
+        fetchData={(params) => api.get('/api/financial/customer/paged', { params })} 
+        onSelect={setSelectedCustomer} 
+        renderItem={(cus) => (<div className="font-bold text-slate-800">{cus.name}</div>)} 
+      />
 
     </div>
   );
