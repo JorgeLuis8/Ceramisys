@@ -1,9 +1,13 @@
 import axios from 'axios';
-import Cookies from 'js-cookie'; // Importação nova
+import Cookies from 'js-cookie';
 
-// URL Base global
-// export const API_BASE_URL = "http://localhost:5087";
-const API_BASE_URL = 'https://api.ceramicacanelas.shop/';
+// Define a URL base dinamicamente
+// Se estiver rodando 'npm run dev', ele usa o localhost.
+// Se estiver rodando 'npm run build/start' ou na Vercel/VPS, usa a URL de produção.
+export const API_BASE_URL = process.env.NODE_ENV === 'development'
+  ? "http://localhost:5087"              // URL Local (Dev)
+  : "https://api.ceramicacanelas.shop/"; // URL Produção
+
 export const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -13,10 +17,7 @@ export const api = axios.create({
 
 // Interceptor: Cola o token em TODA requisição que sair
 api.interceptors.request.use((config) => {
-  // O cookie funciona tanto no Next.js client quanto server-side (com configurações extras), 
-  // mas aqui focamos no Client.
   if (typeof window !== 'undefined') {
-    // AQUI: Mudamos para ler dos Cookies
     const token = Cookies.get('auth_token');
     
     if (token) {
