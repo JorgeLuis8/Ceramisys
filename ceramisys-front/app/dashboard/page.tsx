@@ -5,22 +5,38 @@ import Image from 'next/image';
 import { Menu, Loader2 } from 'lucide-react'; 
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
+import { jwtDecode } from 'jwt-decode';
 
 // IMPORTAÇÕES
 import { Sidebar } from '@/components/Sidebar'; 
 import { InventoryLayout } from '@/components/inventory/InventoryLayout';
 import { SalesLayout } from '@/components/sales/SalesLayout';
 import { FinanceLayout } from '@/components/finance/FinanceLayout'; 
+import { UnauthorizedScreen } from '@/components/UnauthorizedScreen'; // <--- IMPORT NOVO
 
 // ==================================================================
-// TELA DE VISÃO GERAL
+// CONFIGURAÇÃO DE PERMISSÕES (QUEM PODE ACESSAR O QUÊ)
 // ==================================================================
+const MODULE_PERMISSIONS = {
+  inventory: ['Admin', 'Almoxarifado'],
+  finance: ['Admin', 'Financial'],
+  sales: ['Admin', 'Sales']
+};
 
-interface OverviewLayoutProps {
-  onChangeSection: (section: string) => void;
+interface CustomJwtPayload {
+  unique_name: string;
+  role: string;
+  email: string;
 }
 
-const OverviewLayout = ({ onChangeSection }: OverviewLayoutProps) => {
+// ==================================================================
+// COMPONENTE OVERVIEW (CARDS)
+// ==================================================================
+interface OverviewLayoutProps {
+  onAttemptAccess: (moduleId: string) => void; // Mudamos de onChangeSection para onAttemptAccess
+}
+
+const OverviewLayout = ({ onAttemptAccess }: OverviewLayoutProps) => {
   const modules = [
     {
       id: 'inventory',
@@ -28,8 +44,7 @@ const OverviewLayout = ({ onChangeSection }: OverviewLayoutProps) => {
       description: 'Gestão de Estoque',
       longDescription: 'Controle total de argila, lenha e produtos acabados.',
       imageSrc: '/icons/inventory.png', 
-      color: 'orange',
-      features: ['Entrada e saída', 'Controle de queima', 'Estoque mínimo']
+      color: 'orange'
     },
     {
       id: 'finance',
@@ -37,8 +52,7 @@ const OverviewLayout = ({ onChangeSection }: OverviewLayoutProps) => {
       description: 'Fluxo de Caixa',
       longDescription: 'Controle preciso de contas a pagar, receber e fluxo de caixa.',
       imageSrc: '/icons/finance.png',
-      color: 'gray',
-      features: ['Contas a pagar', 'DRE Gerencial', 'Conciliação']
+      color: 'gray'
     },
     {
       id: 'sales',
@@ -46,16 +60,8 @@ const OverviewLayout = ({ onChangeSection }: OverviewLayoutProps) => {
       description: 'Pedidos e Clientes',
       longDescription: 'Gestão de pedidos de venda e carteira de clientes.',
       imageSrc: '/icons/sales.png',
-      color: 'gray',
-      features: ['Emissão de pedidos', 'Tabela de preços', 'Histórico']
+      color: 'gray'
     }
-  ];
-
-  const resources = [
-    { imageSrc: '/icons/box.png', title: 'Produtos', value: 'Ilimitados' },
-    { imageSrc: '/icons/report.png', title: 'Relatórios', value: 'Gerenciais' },
-    { imageSrc: '/icons/users.png', title: 'Acessos', value: 'Multi-nível' },
-    { imageSrc: '/icons/security.png', title: 'Dados', value: 'Seguros' },
   ];
 
   const colorMap = {
@@ -65,7 +71,7 @@ const OverviewLayout = ({ onChangeSection }: OverviewLayoutProps) => {
 
   return (
     <div className="space-y-8 animate-fade-in pb-12">
-      {/* BANNER */}
+      {/* BANNER (Mantido igual) */}
       <div className="relative w-full min-h-[320px] rounded-3xl overflow-hidden bg-white border border-gray-100 shadow-sm flex flex-col items-center justify-center text-center p-8 md:p-12">
         <div className="absolute top-[-50%] left-[-10%] w-96 h-96 bg-orange-100/40 rounded-full blur-3xl opacity-60 pointer-events-none"></div>
         <div className="absolute bottom-[-50%] right-[-10%] w-96 h-96 bg-gray-100/40 rounded-full blur-3xl opacity-60 pointer-events-none"></div>
@@ -74,25 +80,24 @@ const OverviewLayout = ({ onChangeSection }: OverviewLayoutProps) => {
              <Image src="/icons/logo.png" alt="Logo" fill className="object-contain drop-shadow-xl" priority />
           </div>
           <h1 className="text-4xl md:text-6xl font-black tracking-tight text-gray-900 mb-4">
-            Cerami<span className="text-orange-600">Sys</span>
+            Ceramica<span className="text-orange-600">Canelas</span>
           </h1>
           <p className="text-lg md:text-xl text-gray-500 max-w-2xl font-medium leading-relaxed px-4">
             Sistema Inteligente para Gestão de Indústrias Cerâmicas
           </p>
-          <div className="mt-8 flex gap-3">
-             <span className="px-5 py-2 bg-orange-50 text-orange-700 text-xs md:text-sm font-bold uppercase tracking-wide rounded-full border border-orange-100 shadow-sm">
-               Painel Administrativo
-             </span>
-          </div>
         </div>
       </div>
 
-      {/* CARDS */}
+      {/* CARDS COM LÓGICA DE CLIQUE */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
         {modules.map((mod) => {
           const colors = colorMap[mod.color as keyof typeof colorMap];
           return (
-            <div key={mod.id} onClick={() => onChangeSection(mod.id)} className={`flex flex-col bg-white rounded-3xl border-2 ${colors.border} shadow-sm p-6 md:p-8 transition-all cursor-pointer group ${colors.hoverBorder} hover:shadow-lg hover:-translate-y-1 relative overflow-hidden`}>
+            <div 
+              key={mod.id} 
+              onClick={() => onAttemptAccess(mod.id)} // <--- AQUI CHAMA A VALIDAÇÃO
+              className={`flex flex-col bg-white rounded-3xl border-2 ${colors.border} shadow-sm p-6 md:p-8 transition-all cursor-pointer group ${colors.hoverBorder} hover:shadow-lg hover:-translate-y-1 relative overflow-hidden`}
+            >
               <div className="absolute -top-6 -right-6 w-32 h-32 opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none rotate-12">
                 <Image src={mod.imageSrc} alt="" fill className="object-contain" />
               </div>
@@ -110,22 +115,12 @@ const OverviewLayout = ({ onChangeSection }: OverviewLayoutProps) => {
           );
         })}
       </div>
-
-      {/* FOOTER */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {resources.map((res, idx) => (
-          <div key={idx} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 hover:border-orange-200 transition-colors">
-            <div className="p-3 bg-gray-50 rounded-xl relative w-12 h-12 shrink-0"><Image src={res.imageSrc} alt={res.title} fill className="object-contain p-1 opacity-70" /></div>
-            <div><p className="text-[10px] md:text-xs text-gray-400 font-bold uppercase tracking-wider">{res.title}</p><p className="text-sm md:text-base font-bold text-gray-800">{res.value}</p></div>
-          </div>
-        ))}
-      </div>
     </div>
   );
 };
 
 // ==================================================================
-// 3. COMPONENTE PRINCIPAL (PROTEGIDO)
+// 3. COMPONENTE PRINCIPAL (DASHBOARD PAGE)
 // ==================================================================
 
 export default function DashboardPage() {
@@ -134,64 +129,128 @@ export default function DashboardPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isLoading, setIsLoading] = useState(true); 
 
+  // Estados do Usuário
+  const [userName, setUserName] = useState('');
+  const [userRole, setUserRole] = useState('');
+
   useEffect(() => {
     const checkAuth = () => {
-      // Verifica o cookie com path: '/'
       const token = Cookies.get('auth_token');
 
       if (!token) {
-        console.log("Token não encontrado no Dashboard. Redirecionando...");
         router.replace('/auth/login');
       } else {
-        // Token encontrado, libera a view
+        try {
+            const decoded = jwtDecode<CustomJwtPayload>(token);
+            setUserName(decoded.unique_name || 'Usuário');
+            setUserRole(decoded.role || 'Viewer');
+        } catch (error) {
+            console.error("Erro ao decodificar token:", error);
+            router.replace('/auth/login');
+        }
         setIsLoading(false);
       }
     };
 
-    // Pequeno delay para garantir que o cookie foi montado
-    const timeout = setTimeout(() => {
-        checkAuth();
-    }, 100);
-
-    if (window.innerWidth < 768) {
-      setIsSidebarOpen(false);
-    }
-
+    const timeout = setTimeout(() => { checkAuth(); }, 100);
+    if (window.innerWidth < 768) setIsSidebarOpen(false);
     return () => clearTimeout(timeout);
   }, [router]);
+
+  // --- FUNÇÃO PARA GERENCIAR ACESSO AOS MÓDULOS ---
+  const handleModuleChange = (moduleId: string) => {
+    if (moduleId === 'overview') {
+      setActiveModule('overview');
+      return;
+    }
+
+    // Verifica permissão
+    const allowedRoles = MODULE_PERMISSIONS[moduleId as keyof typeof MODULE_PERMISSIONS];
+    
+    if (allowedRoles && allowedRoles.includes(userRole)) {
+      // Tem permissão -> Navega
+      setActiveModule(moduleId);
+    } else {
+      // Não tem permissão -> Tela de erro
+      setActiveModule('unauthorized');
+    }
+  };
+
+  const getInitials = (name: string) => {
+      if (!name) return 'U';
+      return name.substring(0, 2).toUpperCase();
+  };
+
+  const getHeaderTitle = () => {
+    switch(activeModule) {
+      case 'overview': return 'Visão Geral';
+      case 'sales': return 'Vendas';
+      case 'finance': return 'Financeiro';
+      case 'inventory': return 'Almoxarifado';
+      case 'unauthorized': return 'Acesso Restrito'; // Título para erro
+      default: return 'CeramiSys';
+    }
+  }
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
         <Loader2 className="w-12 h-12 text-orange-500 animate-spin mb-4" />
-        <p className="text-gray-500 font-medium">Verificando credenciais...</p>
+        <p className="text-gray-500 font-medium">Carregando sistema...</p>
       </div>
     );
   }
 
-  // --- ROTEAMENTO DOS MÓDULOS ---
-
-  if (activeModule === 'inventory') return <InventoryLayout onBackToMain={() => setActiveModule('overview')} />;
-  if (activeModule === 'sales') return <SalesLayout onBackToMain={() => setActiveModule('overview')} />;
-  if (activeModule === 'finance') return <FinanceLayout onBackToMain={() => setActiveModule('overview')} />;
-
-  const getHeaderTitle = () => activeModule === 'overview' ? 'Visão Geral' : 'CeramiSys';
+  // Renderização Condicional do Conteúdo Principal
+  const renderContent = () => {
+    if (activeModule === 'unauthorized') {
+      return <UnauthorizedScreen onBack={() => setActiveModule('overview')} />;
+    }
+    if (activeModule === 'inventory') return <InventoryLayout onBackToMain={() => setActiveModule('overview')} />;
+    if (activeModule === 'sales') return <SalesLayout onBackToMain={() => setActiveModule('overview')} />;
+    if (activeModule === 'finance') return <FinanceLayout onBackToMain={() => setActiveModule('overview')} />;
+    
+    // Default: Overview
+    return <OverviewLayout onAttemptAccess={handleModuleChange} />;
+  };
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] flex font-sans overflow-hidden">
-      <Sidebar activeSection={activeModule} onChangeSection={setActiveModule} isOpen={isSidebarOpen} toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
+      
+      {/* Sidebar usa handleModuleChange para validar cliques do menu também */}
+      <Sidebar 
+        activeSection={activeModule} 
+        onChangeSection={handleModuleChange} 
+        isOpen={isSidebarOpen} 
+        toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} 
+      />
+      
       <main className={`flex-1 flex flex-col h-screen transition-all duration-300 ease-in-out ${isSidebarOpen ? 'md:ml-64' : 'md:ml-20'} ml-0`}>
+        
         <header className="h-20 bg-white/90 backdrop-blur-sm border-b border-gray-200 flex items-center justify-between px-6 md:px-8 sticky top-0 z-40 shadow-sm">
            <div className="flex items-center gap-4">
-             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg md:hidden"><Menu size={24} /></button>
-             <h1 className="text-xl md:text-2xl font-bold text-gray-800 capitalize truncate">{getHeaderTitle()}</h1>
+             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg md:hidden">
+               <Menu size={24} />
+             </button>
+             <h1 className="text-xl md:text-2xl font-bold text-gray-800 capitalize truncate">
+               {getHeaderTitle()}
+             </h1>
            </div>
+           
            <div className="flex items-center gap-4">
-              <div className="flex flex-col items-end mr-2 hidden md:flex"><span className="text-sm font-bold text-gray-700">Admin</span><span className="text-xs text-gray-500">CeramiSys</span></div>
-              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-orange-500 to-orange-400 text-white flex items-center justify-center font-bold shadow-md border-2 border-white cursor-pointer shrink-0">AD</div>
+              <div className="flex flex-col items-end mr-2 hidden md:flex">
+                  <span className="text-sm font-bold text-gray-700">{userName}</span>
+                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{userRole}</span>
+              </div>
+              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-orange-500 to-orange-400 text-white flex items-center justify-center font-bold shadow-md border-2 border-white cursor-pointer shrink-0">
+                  {getInitials(userName)}
+              </div>
            </div>
         </header>
-        <div className="flex-1 p-4 md:p-8 overflow-y-auto bg-[#f8f9fa] custom-scrollbar pb-20"><OverviewLayout onChangeSection={setActiveModule} /></div>
+
+        <div className="flex-1 p-4 md:p-8 overflow-y-auto bg-[#f8f9fa] custom-scrollbar pb-20">
+            {renderContent()}
+        </div>
       </main>
     </div>
   );

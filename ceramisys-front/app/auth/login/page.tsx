@@ -139,7 +139,7 @@ export default function LoginPage() {
                />
             </div>
             <h1 className="text-6xl font-black text-gray-900 mb-4 tracking-tight">
-              Cerami<span className="text-orange-600">Sys</span>
+              Ceramica<span className="text-orange-600">Canelas</span>
             </h1>
             <p className="text-xl text-gray-600 max-w-md mx-auto leading-relaxed font-medium">
               Gestão inteligente para indústrias cerâmicas.
