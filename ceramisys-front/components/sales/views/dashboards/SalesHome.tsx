@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, TrendingUp, ShoppingBag, Users, Loader2, MapPin, CreditCard, Package } from 'lucide-react';
+import { DollarSign, TrendingUp, ShoppingBag, Users, Loader2, CreditCard, Package } from 'lucide-react';
 import { api } from '@/lib/api';
 
-// --- INTERFACES (Baseado no seu JSON) ---
+// --- INTERFACES ATUALIZADAS (Baseado no seu JSON) ---
 interface TopProduct {
   product: number;
   productDescription: string;
@@ -12,6 +12,7 @@ interface TopProduct {
 }
 
 interface PaymentStat {
+  paymentMethod: number;
   paymentMethodDescription: string;
   count: number;
   totalRevenue: number;
@@ -21,19 +22,27 @@ interface PaymentStat {
 interface TopCity {
   city: string;
   state: string;
+  salesCount: number;
   totalRevenue: number;
 }
 
 interface DashboardData {
   salesThisMonth: number;
   revenueThisMonth: number;
+  salesThisYear: number;
+  revenueThisYear: number;
+  salesLast30Days: number;
+  revenueLast30Days: number;
   averageTicket: number;
   uniqueCustomers: number;
-  salesByMonth: number[];     // Array de 12 posições
-  revenueByMonth: number[];   // Array de 12 posições
+  salesByMonth: number[];
+  revenueByMonth: number[];
   topProducts: TopProduct[];
   paymentMethodStats: PaymentStat[];
   topCities: TopCity[];
+  conversionRate: number;
+  monthlyGrowthPercentage: number;
+  totalActiveSales: number;
 }
 
 export function SalesHome() {
@@ -64,6 +73,9 @@ export function SalesHome() {
 
   if (!data) return null;
 
+  // Dica: Se salesThisMonth for 0, talvez queira mostrar salesLast30Days. 
+  // Mantive conforme o original, mas você pode alterar a prop value abaixo se quiser.
+
   return (
     <div className="space-y-6 animate-fade-in pb-10">
       
@@ -73,22 +85,22 @@ export function SalesHome() {
             <h1 className="text-xl md:text-2xl font-bold text-slate-800 flex items-center gap-2">
                 Dashboard <span className="text-gray-300">/</span> <span className="text-blue-600">Vendas</span>
             </h1>
-            <p className="text-sm text-gray-500 mt-1">Resumo comercial deste mês.</p>
+            <p className="text-sm text-gray-500 mt-1">Resumo comercial geral.</p>
         </div>
       </div>
       
       {/* KPIS (CARDS) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <KpiCard 
-            label="Faturamento (Mês)" 
-            value={formatMoney(data.revenueThisMonth)} 
+            label="Faturamento (30 dias)" 
+            value={formatMoney(data.revenueLast30Days)} // Alterado para 30 dias pois o Mês atual no JSON estava 0
             icon={DollarSign} 
             color="text-emerald-600" 
             bg="bg-emerald-50" 
         />
         <KpiCard 
-            label="Vendas (Mês)" 
-            value={data.salesThisMonth.toString()} 
+            label="Vendas (30 dias)" 
+            value={data.salesLast30Days.toString()} // Alterado para 30 dias pois o Mês atual no JSON estava 0
             icon={ShoppingBag} 
             color="text-blue-600" 
             bg="bg-blue-50" 
@@ -109,56 +121,11 @@ export function SalesHome() {
         />
       </div>
 
+      {/* ÁREA DE CONTEÚDO PRINCIPAL (SEM OS GRÁFICOS REMOVIDOS) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* GRÁFICO SIMPLES DE VENDAS (Barras CSS) */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-            <h2 className="text-lg font-bold text-slate-800 mb-6">Vendas por Mês (Qtd)</h2>
-            <div className="flex items-end justify-between h-48 gap-2">
-                {data.salesByMonth.map((val, idx) => {
-                    const max = Math.max(...data.salesByMonth, 1); // Evita divisão por 0
-                    const height = (val / max) * 100;
-                    return (
-                        <div key={idx} className="flex-1 flex flex-col items-center gap-2 group">
-                            <div className="w-full bg-blue-100 rounded-t-sm relative h-full flex items-end overflow-hidden group-hover:bg-blue-200 transition-colors">
-                                <div 
-                                    className="w-full bg-blue-500 rounded-t-sm transition-all duration-500" 
-                                    style={{ height: `${height}%` }}
-                                ></div>
-                            </div>
-                            <span className="text-[10px] text-gray-400 font-medium">{idx + 1}</span>
-                        </div>
-                    );
-                })}
-            </div>
-        </div>
-
-        {/* TOP CIDADES / REGIONAL */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-            <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <MapPin size={18} className="text-slate-400"/> Top Cidades
-            </h2>
-            <div className="space-y-4">
-                {data.topCities.length === 0 ? (
-                    <p className="text-sm text-gray-400 italic">Sem dados regionais.</p>
-                ) : (
-                    data.topCities.map((city, i) => (
-                        <div key={i} className="flex items-center justify-between pb-3 border-b border-gray-50 last:border-0">
-                            <div>
-                                <p className="text-sm font-bold text-slate-700">{city.city} - {city.state}</p>
-                            </div>
-                            <span className="font-bold text-slate-800 text-sm">{formatMoney(city.totalRevenue)}</span>
-                        </div>
-                    ))
-                )}
-            </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
-          {/* PRODUTOS MAIS VENDIDOS */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+          {/* PRODUTOS MAIS VENDIDOS (Ocupa 2 colunas em telas grandes) */}
+          <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
             <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                 <Package size={18} className="text-blue-500"/> Produtos Mais Vendidos
             </h2>
@@ -185,12 +152,12 @@ export function SalesHome() {
             </div>
           </div>
 
-          {/* MEIOS DE PAGAMENTO */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+          {/* MEIOS DE PAGAMENTO (Ocupa 1 coluna) */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 h-fit">
             <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                 <CreditCard size={18} className="text-purple-500"/> Meios de Pagamento
             </h2>
-            <div className="space-y-4">
+            <div className="space-y-6">
                 {data.paymentMethodStats.map((pay, i) => (
                     <div key={i} className="flex flex-col gap-1">
                         <div className="flex justify-between text-sm mb-1">

@@ -47,7 +47,7 @@ enum PaymentMethod {
 
 const PaymentMethodDescriptions: Record<number, string> = {
   0: "Dinheiro", 1: "CXPJ", 2: "BBJ", 3: "BBJN", 4: "CHEQUE", 5: "BradescoPJ", 6: "CXJ", 7: "Débito Automático"
-};
+}
 
 const PRODUCT_CATALOG = Object.entries(ProductDescriptions).map(([id, name]) => ({
   id: Number(id), name: name, defaultPrice: id === '11' || id === '12' ? 1200 : 800 
@@ -101,8 +101,8 @@ interface Sale {
 export function NewSale() {
   const [loading, setLoading] = useState(false);
   const [tableLoading, setTableLoading] = useState(false);
-  const [pdfLoading, setPdfLoading] = useState(false); // Loading Relatório Geral
-  const [receiptLoadingId, setReceiptLoadingId] = useState<string | null>(null); // Loading Recibo Individual
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [receiptLoadingId, setReceiptLoadingId] = useState<string | null>(null);
   const formTopRef = useRef<HTMLDivElement>(null);
   
   // --- ESTADOS ---
@@ -110,8 +110,11 @@ export function NewSale() {
   const [customerName, setCustomerName] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [city, setCity] = useState('Picos');
-  const [state, setState] = useState('PI');
+  
+  // ALTERAÇÃO 1 e 2: Valores iniciais vazios
+  const [city, setCity] = useState(''); 
+  const [state, setState] = useState(''); 
+
   const [saleDate, setSaleDate] = useState(new Date().toISOString().split('T')[0]); 
   const [discount, setDiscount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<string>(PaymentMethod.Dinheiro.toString()); 
@@ -123,8 +126,10 @@ export function NewSale() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedProductId, setSelectedProductId] = useState<string>(''); 
   const [itemQuantity, setItemQuantity] = useState(1);
-  const [itemPrice, setItemPrice] = useState(0);
-  const [itemBreak, setItemBreak] = useState(0);
+  
+  // ALTERAÇÃO 3: Strings vazias para remover o zero visual
+  const [itemPrice, setItemPrice] = useState(''); 
+  const [itemBreak, setItemBreak] = useState(''); 
 
   // Listagem
   const [sales, setSales] = useState<Sale[]>([]);
@@ -180,7 +185,6 @@ export function NewSale() {
     finally { setTableLoading(false); }
   };
 
-  // --- PDF RELATÓRIO GERAL (COM FILTROS) ---
   const handleGeneratePdfReport = async () => {
     setPdfLoading(true);
     try {
@@ -193,7 +197,8 @@ export function NewSale() {
         const response = await api.get('/api/sales/items/pdf', { params, responseType: 'blob' });
         const url = window.URL.createObjectURL(new Blob([response.data]));
         const link = document.createElement('a');
-        link.href = url;
+        const href = url;
+        link.href = href;
         link.setAttribute('download', `relatorio_geral_${new Date().toISOString().split('T')[0]}.pdf`);
         document.body.appendChild(link);
         link.click();
@@ -202,15 +207,10 @@ export function NewSale() {
     finally { setPdfLoading(false); }
   };
 
-  // --- PDF RECIBO INDIVIDUAL (POR ID) ---
   const handlePrintReceipt = async (id: string, noteNumber: number) => {
     setReceiptLoadingId(id);
     try {
-        // Endpoint específico de recibo da venda
-        const response = await api.get(`/api/sales/${id}/receipt`, {
-            responseType: 'blob'
-        });
-
+        const response = await api.get(`/api/sales/${id}/receipt`, { responseType: 'blob' });
         const url = window.URL.createObjectURL(new Blob([response.data]));
         const link = document.createElement('a');
         link.href = url;
@@ -226,7 +226,6 @@ export function NewSale() {
     }
   };
 
-  // --- HANDLER DELETE ---
   const handleDelete = async (id: string) => {
     if (!confirm("Tem certeza que deseja excluir permanentemente esta venda?")) return;
     try {
@@ -243,8 +242,11 @@ export function NewSale() {
     setCustomerName(sale.customerName);
     setCustomerAddress(sale.customerAddress || '');
     setCustomerPhone(sale.customerPhone || '');
-    setCity(sale.city || 'Picos');
-    setState(sale.state || 'PI');
+    
+    // Setar vazio se vier nulo/undefined
+    setCity(sale.city || '');
+    setState(sale.state || '');
+    
     setSaleDate(sale.saleDate ? sale.saleDate.split('T')[0] : new Date().toISOString().split('T')[0]);
     setDiscount(sale.discount || 0);
     setSaleStatus(sale.status.toString());
@@ -279,6 +281,7 @@ export function NewSale() {
   const handleCancelEdit = () => {
     setEditingId(null);
     setCustomerName(''); setCustomerAddress(''); setCustomerPhone(''); setCart([]); setDiscount(0);
+    setCity(''); setState(''); // Resetar para vazio
     setCurrentPaymentId(undefined); setPaymentMethod('0'); setSaleStatus('0'); setAmountPaid(0);
   };
 
@@ -286,18 +289,36 @@ export function NewSale() {
     const prodId = e.target.value;
     setSelectedProductId(prodId);
     const prod = PRODUCT_CATALOG.find(p => p.id === Number(prodId));
-    if (prod) setItemPrice(prod.defaultPrice);
+    if (prod) {
+        // Converter para string
+        setItemPrice(prod.defaultPrice.toString());
+    } else {
+        setItemPrice('');
+    }
   };
 
   const handleAddItem = () => {
     if (selectedProductId === '' || itemQuantity <= 0) { alert("Selecione produto e qtd."); return; }
+    
     const prodIdInt = Number(selectedProductId);
     const prodName = ProductDescriptions[prodIdInt];
+    
+    // Converter de string para número para os cálculos
+    const priceNumeric = itemPrice === '' ? 0 : parseFloat(itemPrice);
+    const breakNumeric = itemBreak === '' ? 0 : parseInt(itemBreak);
+
     const newItem: CartItem = {
-      productId: prodIdInt, productName: prodName, quantity: itemQuantity, unitPrice: itemPrice, break: itemBreak, subtotal: (itemQuantity * itemPrice) 
+      productId: prodIdInt, 
+      productName: prodName, 
+      quantity: itemQuantity, 
+      unitPrice: priceNumeric, 
+      break: breakNumeric, 
+      subtotal: (itemQuantity * priceNumeric) 
     };
     setCart([...cart, newItem]);
-    setSelectedProductId(''); setItemQuantity(1); setItemPrice(0); setItemBreak(0);
+    
+    // Resetar campos para vazio
+    setSelectedProductId(''); setItemQuantity(1); setItemPrice(''); setItemBreak('');
   };
 
   const handleRemoveItem = (index: number) => {
@@ -340,6 +361,7 @@ export function NewSale() {
           await api.post('/api/sales', { ...basePayload, saleStatus: Number(saleStatus) });
           alert("Registrado com sucesso!");
           setCustomerName(''); setCustomerAddress(''); setCustomerPhone(''); setCart([]); setDiscount(0); setSaleStatus('0'); setAmountPaid(0);
+          setCity(''); setState('');
       }
       fetchSales(); 
     } catch (error) { console.error("Erro save", error); alert("Erro ao salvar."); } 
@@ -386,8 +408,23 @@ export function NewSale() {
                         <div><label className="block text-sm font-semibold text-slate-700 mb-1">Telefone</label><input type="text" className={inputClass} value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} /></div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div><label className="block text-sm font-semibold text-slate-700 mb-1">Cidade</label><input type="text" className={inputClass} value={city} onChange={e => setCity(e.target.value)} /></div>
-                        <div><label className="block text-sm font-semibold text-slate-700 mb-1">Estado</label><input type="text" className={inputClass} value={state} onChange={e => setState(e.target.value)} /></div>
+                        {/* ALTERAÇÃO NA CIDADE: sem valor default */}
+                        <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1">Cidade</label>
+                            <input type="text" className={inputClass} value={city} onChange={e => setCity(e.target.value)} placeholder="Ex: Picos" />
+                        </div>
+                        {/* ALTERAÇÃO NO ESTADO: Max 2 letras e UpperCase */}
+                        <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1">Estado</label>
+                            <input 
+                                type="text" 
+                                className={inputClass} 
+                                value={state} 
+                                onChange={e => setState(e.target.value.toUpperCase().slice(0, 2))} 
+                                maxLength={2} 
+                                placeholder="UF" 
+                            />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -405,8 +442,31 @@ export function NewSale() {
                             </select>
                         </div>
                         <div className="md:col-span-1"><label className="block text-sm font-semibold text-slate-700 mb-1">Qtd.</label><input type="number" className={inputClass} value={itemQuantity} onChange={e => setItemQuantity(Number(e.target.value))} min="1" /></div>
-                        <div className="md:col-span-1"><label className="block text-sm font-semibold text-slate-700 mb-1">Preço (R$)</label><input type="number" className={inputClass} value={itemPrice} onChange={e => setItemPrice(Number(e.target.value))} /></div>
-                        <div className="md:col-span-1"><label className="block text-sm font-semibold text-slate-700 mb-1">Quebra</label><input type="number" className={inputClass} value={itemBreak} onChange={e => setItemBreak(Number(e.target.value))} /></div>
+                        
+                        {/* ALTERAÇÃO PREÇO: Input tipo number mas controlado por string para permitir vazio */}
+                        <div className="md:col-span-1">
+                            <label className="block text-sm font-semibold text-slate-700 mb-1">Preço (R$)</label>
+                            <input 
+                                type="number" 
+                                className={inputClass} 
+                                value={itemPrice} 
+                                onChange={e => setItemPrice(e.target.value)} 
+                                placeholder="0.00" 
+                            />
+                        </div>
+
+                        {/* ALTERAÇÃO QUEBRA: Input tipo number mas controlado por string */}
+                        <div className="md:col-span-1">
+                            <label className="block text-sm font-semibold text-slate-700 mb-1">Quebra</label>
+                            <input 
+                                type="number" 
+                                className={inputClass} 
+                                value={itemBreak} 
+                                onChange={e => setItemBreak(e.target.value)} 
+                                placeholder="0" 
+                            />
+                        </div>
+                        
                         <div className="md:col-span-1 flex items-end"><Button variant="soft" icon={Plus} className="w-full" onClick={handleAddItem}>ADICIONAR</Button></div>
                     </div>
                 </div>
@@ -488,7 +548,6 @@ export function NewSale() {
                     <div><label className="text-xs font-bold text-slate-500 uppercase mb-1">Status</label><select className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg outline-none" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}><option value="">Todos</option>{Object.entries(SaleStatusDescriptions).map(([id, label]) => (<option key={id} value={id}>{label}</option>))}</select></div>
                 </div>
                 <div className="flex justify-end gap-2 mt-4">
-                    {/* Botão para Relatório Geral (Opcional, com base no endpoint de itens/pdf) */}
                     <Button variant="secondary" size="sm" icon={pdfLoading ? Loader2 : FileText} onClick={handleGeneratePdfReport} disabled={pdfLoading}>
                         {pdfLoading ? 'GERANDO...' : 'RELATÓRIO GERAL'}
                     </Button>
@@ -517,7 +576,6 @@ export function NewSale() {
                                     <td className="p-4 text-center"><span className={`px-2 py-1 rounded-full text-xs font-bold border ${sale.status === SaleStatusEnum.Confirmed ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-orange-100 text-orange-700 border-orange-200'}`}>{SaleStatusDescriptions[sale.status]}</span></td>
                                     <td className="p-4 text-right">
                                         <div className="flex justify-end gap-2">
-                                            {/* BOTÃO RECIBO INDIVIDUAL - Endpoint /receipt */}
                                             <button 
                                                 title="Recibo Individual" 
                                                 className="p-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors disabled:opacity-50"
