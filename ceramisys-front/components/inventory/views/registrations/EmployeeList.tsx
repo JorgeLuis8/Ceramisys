@@ -4,12 +4,11 @@ import { Button } from '@/components/ui/Button';
 import { TableAction } from '@/components/ui/TableAction';
 import { api } from '@/lib/api';
 
-// Interface usada para LEITURA (GET) - O backend retorna "positions"
 interface Employee {
   id: string;
   name: string;
   cpf: string;
-  positions: number; // Single 'i' aqui (conforme o JSON de retorno)
+  positions: number; 
   imageUrl?: string;
   isActive: boolean;
 }
@@ -41,16 +40,18 @@ export function EmployeeList() {
 
   const [employees, setEmployees] = useState<Employee[]>([]);
   
+  // Paginação
   const [page, setPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const pageSize = 10;
 
+  // Filtros (Estados)
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPosition, setFilterPosition] = useState('');
   const [activeOnly, setActiveOnly] = useState(true);
   const [sortOption, setSortOption] = useState('name_asc');
 
-  // No formulário usamos "positions" (um 'i') para facilitar o bind com o objeto de leitura
+  // Formulário
   const [formData, setFormData] = useState({
     name: '',
     cpf: '',
@@ -65,7 +66,9 @@ export function EmployeeList() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]); 
 
-  const fetchEmployees = async (isReset = false) => {
+  // --- BUSCA NA API ---
+  // Adicionado parâmetro opcional 'overrideActiveOnly' para garantir atualização imediata do checkbox
+  const fetchEmployees = async (isReset = false, overrideActiveOnly?: boolean) => {
     setTableLoading(true);
     try {
       let orderBy = 'Name';
@@ -74,12 +77,20 @@ export function EmployeeList() {
 
       if (currentSort === 'name_desc') ascending = false;
 
+      // Lógica para determinar o valor correto de ActiveOnly
+      // 1. Se foi resetado, é true.
+      // 2. Se veio um override (clique direto no check), usa o override.
+      // 3. Senão, usa o estado atual.
+      let finalActiveOnly = activeOnly;
+      if (overrideActiveOnly !== undefined) finalActiveOnly = overrideActiveOnly;
+      if (isReset) finalActiveOnly = true;
+
       const params = {
-        Page: isReset ? 1 : page,
+        NameDescriptionPage: isReset ? 1 : page,
         PageSize: pageSize,
-        Search: isReset ? '' : searchTerm,
-        Positions: (isReset || filterPosition === '') ? undefined : filterPosition,
-        ActiveOnly: isReset ? true : activeOnly,
+        Search: (isReset ? '' : searchTerm) || undefined,
+        Positions: (isReset || filterPosition === '') ? undefined : Number(filterPosition),
+        ActiveOnly: finalActiveOnly, // Usa o valor calculado
         OrderBy: orderBy,
         Ascending: ascending
       };
@@ -105,9 +116,18 @@ export function EmployeeList() {
   };
 
   const handleFilter = () => { setPage(1); fetchEmployees(); };
+  
   const handleClearFilters = () => {
     setSearchTerm(''); setFilterPosition(''); setActiveOnly(true); setSortOption('name_asc');
     setPage(1); fetchEmployees(true);
+  };
+
+  // Handler específico para o checkbox de ativos para disparar busca imediata
+  const handleActiveToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const isChecked = e.target.checked;
+      setActiveOnly(isChecked);
+      setPage(1); // Volta para página 1 ao mudar filtro
+      fetchEmployees(false, isChecked); // Passa o valor novo diretamente para a função de busca
   };
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -128,14 +148,11 @@ export function EmployeeList() {
     setFormData({
       name: emp.name,
       cpf: emp.cpf,
-      positions: emp.positions // Aqui lê do GET (positions)
+      positions: emp.positions 
     });
     setImagePreview(emp.imageUrl || null);
     setSelectedImage(null);
-
-    if (formRef.current) {
-      formRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    if (formRef.current) formRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const handleCancelEdit = () => {
@@ -159,27 +176,17 @@ export function EmployeeList() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.name || !formData.cpf) {
-      alert("Nome e CPF são obrigatórios.");
-      return;
-    }
+    if (!formData.name || !formData.cpf) { alert("Nome e CPF são obrigatórios."); return; }
     setLoading(true);
     try {
       const data = new FormData();
       data.append('Name', formData.name);
       data.append('CPF', formData.cpf);
-      
-      // ========================================================
-      // AQUI ESTÁ A CORREÇÃO SOLICITADA:
-      // Lê do form (positions) -> Envia para API como (Positiions)
-      // ========================================================
       data.append('Positiions', formData.positions.toString());
-
       if (selectedImage) data.append('Imagem', selectedImage);
       if (editingId) data.append('Id', editingId);
 
       const config = { headers: { 'Content-Type': 'multipart/form-data' } };
-
       if (editingId) {
         await api.put('/api/employees', data, config);
         alert('Funcionário atualizado com sucesso!');
@@ -250,7 +257,6 @@ export function EmployeeList() {
               </select>
             </div>
           </div>
-
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">Foto</label>
             <div className="flex items-center gap-4">
@@ -269,43 +275,50 @@ export function EmployeeList() {
             </div>
           </div>
         </div>
-
         <div className="p-4 border-t border-slate-200 flex justify-end gap-3">
           {editingId && <Button variant="outline" icon={Undo2} onClick={handleCancelEdit}>CANCELAR</Button>}
           <Button variant="primary" icon={loading ? Loader2 : Save} onClick={handleSubmit} disabled={loading}>{loading ? 'SALVANDO...' : (editingId ? 'ATUALIZAR' : 'SALVAR FUNCIONÁRIO')}</Button>
         </div>
       </div>
 
-      {/* --- LISTA --- */}
+      {/* --- ÁREA DE LISTAGEM E FILTROS --- */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-6 border-b border-slate-200">
           <h2 className="text-lg font-bold text-slate-800 mb-6">Lista de Colaboradores</h2>
           
           <div className="bg-slate-50 p-6 rounded-lg border border-slate-200">
+            
+            {/* GRID DE FILTROS */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+              
+              {/* Filtro: Busca */}
               <div className="md:col-span-2">
-                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Buscar</label>
+                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Buscar (Nome)</label>
                  <div className="relative">
                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                    <input 
-                      type="text" 
-                      className={inputClass} 
-                      placeholder="Nome ou CPF..." 
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleFilter()}
+                     type="text" 
+                     className={inputClass} 
+                     placeholder="Nome ou descrição..." 
+                     value={searchTerm}
+                     onChange={(e) => setSearchTerm(e.target.value)}
+                     onKeyDown={(e) => e.key === 'Enter' && handleFilter()}
                    />
                  </div>
               </div>
+
+              {/* Filtro: Cargo (Positions) */}
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Cargo</label>
                 <select className={inputClass} value={filterPosition} onChange={(e) => setFilterPosition(e.target.value)}>
-                  <option value="">Todos</option>
+                  <option value="">Todos os Cargos</option>
                   {POSITIONS.map(pos => <option key={pos.value} value={pos.value}>{pos.label}</option>)}
                 </select>
               </div>
+
+              {/* Filtro: Ordenação */}
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Ordenar</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Ordenar por</label>
                 <select className={inputClass} value={sortOption} onChange={(e) => setSortOption(e.target.value)}>
                   <option value="name_asc">Nome (A-Z)</option>
                   <option value="name_desc">Nome (Z-A)</option>
@@ -313,16 +326,19 @@ export function EmployeeList() {
               </div>
             </div>
 
+            {/* BARRA INFERIOR DE FILTROS (Ativos e Botões) */}
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-               <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
+               {/* Filtro: ActiveOnly (Agora com Trigger Imediato) */}
+               <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700 bg-white px-3 py-2 rounded border border-slate-200 shadow-sm hover:border-slate-300 transition-colors select-none">
                   <input 
                     type="checkbox" 
                     checked={activeOnly} 
-                    onChange={(e) => setActiveOnly(e.target.checked)}
-                    className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
+                    onChange={handleActiveToggle}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
                   />
-                  Mostrar Apenas Ativos
+                  <span>Mostrar Apenas Ativos</span>
                </label>
+
                <div className="flex gap-2">
                  <Button variant="outline" icon={X} onClick={handleClearFilters}>LIMPAR</Button>
                  <Button variant="soft" icon={Filter} onClick={handleFilter}>FILTRAR</Button>
@@ -331,6 +347,7 @@ export function EmployeeList() {
           </div>
         </div>
 
+        {/* --- TABELA --- */}
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[700px]">
             <thead className="bg-slate-50 text-slate-600 text-xs uppercase font-bold border-b border-slate-200">
@@ -347,7 +364,7 @@ export function EmployeeList() {
               {tableLoading ? (
                 <tr><td colSpan={6} className="p-8 text-center"><div className="flex justify-center gap-2 text-slate-500"><Loader2 className="animate-spin" /> Carregando...</div></td></tr>
               ) : employees.length === 0 ? (
-                <tr><td colSpan={6} className="p-8 text-center text-slate-500">Nenhum funcionário encontrado com os filtros selecionados.</td></tr>
+                <tr><td colSpan={6} className="p-8 text-center text-slate-500">Nenhum funcionário encontrado.</td></tr>
               ) : (
                 employees.map((emp) => (
                   <tr key={emp.id} className={`border-b border-slate-100 last:border-0 transition-colors ${editingId === emp.id ? 'bg-blue-50' : 'hover:bg-slate-50'}`}>
@@ -377,7 +394,7 @@ export function EmployeeList() {
           </table>
         </div>
 
-        {/* Paginação */}
+        {/* Rodapé Paginação */}
         <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
           <span className="text-sm text-slate-500">Total: <strong>{totalItems}</strong> funcionários</span>
           <div className="flex items-center gap-2">
