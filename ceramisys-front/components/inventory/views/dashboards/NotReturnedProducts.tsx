@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, AlertCircle, Filter, X, Search, Calendar, User, Package, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Clock, AlertCircle, Filter, X, Search, Calendar, User, Package, Loader2, ChevronLeft, ChevronRight, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { api } from '@/lib/api';
 
-// Interface baseada no seu JSON
+// Interface baseada no seu JSON de retorno
 interface UnreturnedItem {
   id: string;
   productName: string;
@@ -14,10 +14,17 @@ interface UnreturnedItem {
   dataRetirada: string;
 }
 
+// Interface para o Select de Categorias
+interface Category {
+  id: string;
+  name: string;
+}
+
 export function NotReturnedProducts() {
   // --- ESTADOS ---
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<UnreturnedItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]); // Estado para categorias
   
   // Paginação
   const [page, setPage] = useState(1);
@@ -25,24 +32,43 @@ export function NotReturnedProducts() {
   const pageSize = 10;
 
   // Filtros
+  const [search, setSearch] = useState('');           // Novo filtro: Search
+  const [categoryId, setCategoryId] = useState('');   // Novo filtro: CategoryId
   const [employeeFilter, setEmployeeFilter] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
   // --- EFEITOS ---
   useEffect(() => {
+    fetchCategories(); // Busca categorias ao montar
     fetchReport();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
-  // --- API ---
+  // --- API: BUSCAR CATEGORIAS ---
+  const fetchCategories = async () => {
+    try {
+        // Ajuste a rota se for diferente, ex: /api/categories
+        const response = await api.get('/api/categories'); 
+        setCategories(response.data);
+    } catch (error) {
+        console.error("Erro ao carregar categorias", error);
+    }
+  };
+
+  // --- API: BUSCAR RELATÓRIO ---
   const fetchReport = async (isReset = false) => {
     setLoading(true);
     try {
       const params = {
         Page: isReset ? 1 : page,
         PageSize: pageSize,
-        // Envia filtros apenas se estiverem preenchidos
+        
+        // Novos Filtros do Swagger
+        Search: (isReset ? '' : search) || undefined,
+        CategoryId: (isReset ? '' : categoryId) || undefined,
+        
+        // Filtros Existentes
         EmployeeName: (isReset ? '' : employeeFilter) || undefined,
         StartDate: (isReset ? '' : startDate) || undefined,
         EndDate: (isReset ? '' : endDate) || undefined,
@@ -72,6 +98,8 @@ export function NotReturnedProducts() {
   };
 
   const handleClearFilters = () => {
+    setSearch('');
+    setCategoryId('');
     setEmployeeFilter('');
     setStartDate('');
     setEndDate('');
@@ -113,23 +141,61 @@ export function NotReturnedProducts() {
 
       {/* --- BARRA DE FILTROS --- */}
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-          <div className="md:col-span-2">
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nome do Funcionário</label>
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-4">
+          
+          {/* Filtro: Busca Geral */}
+          <div className="md:col-span-1 lg:col-span-2">
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Buscar (Produto/Geral)</label>
             <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input 
                 type="text" 
                 className={`${inputClass} pl-10`} 
-                placeholder="Ex: Jorge..." 
-                value={employeeFilter}
-                onChange={e => setEmployeeFilter(e.target.value)}
+                placeholder="Nome do produto..." 
+                value={search}
+                onChange={e => setSearch(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleFilter()}
               />
             </div>
           </div>
+
+          {/* Filtro: Funcionário */}
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Data Início (Retirada)</label>
+             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Funcionário</label>
+             <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input 
+                    type="text" 
+                    className={`${inputClass} pl-10`} 
+                    placeholder="Nome..." 
+                    value={employeeFilter}
+                    onChange={e => setEmployeeFilter(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleFilter()}
+                />
+             </div>
+          </div>
+
+          {/* Filtro: Categoria */}
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Categoria</label>
+            <div className="relative">
+                <Layers className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <select 
+                    className={`${inputClass} pl-10 appearance-none bg-white`}
+                    value={categoryId}
+                    onChange={e => setCategoryId(e.target.value)}
+                >
+                    <option value="">Todas</option>
+                    {categories.map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                </select>
+            </div>
+          </div>
+
+          {/* Datas (Agrupadas para economizar espaço visual ou manter separado se preferir) */}
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Data Retirada (Início)</label>
             <input 
               type="datetime-local" 
               className={inputClass} 
@@ -138,7 +204,7 @@ export function NotReturnedProducts() {
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Data Fim</label>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Data Retirada (Fim)</label>
             <input 
               type="datetime-local" 
               className={inputClass} 
@@ -146,6 +212,7 @@ export function NotReturnedProducts() {
               onChange={e => setEndDate(e.target.value)}
             />
           </div>
+
         </div>
         <div className="flex justify-end gap-2">
           <Button variant="outline" size="sm" icon={X} onClick={handleClearFilters}>LIMPAR</Button>

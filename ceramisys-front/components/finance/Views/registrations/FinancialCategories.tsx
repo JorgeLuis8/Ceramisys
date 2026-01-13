@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Save, Search, Tags, Loader2, Edit, Trash2, Plus, FolderInput, X, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Save, Search, Tags, Loader2, Edit, Trash2, Plus, FolderInput, X, Check, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { api } from '@/lib/api';
 
@@ -17,6 +17,159 @@ interface LaunchCategory {
   idGroupCategory: string | null;   
 }
 
+// --- COMPONENTE DE MODAL DE BUSCA (COM PAGINAÇÃO) ---
+interface SearchModalProps<T> {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  fetchData: (params: any) => Promise<any>;
+  onSelect: (item: T) => void;
+  renderItem: (item: T) => React.ReactNode;
+}
+
+function SearchModal<T>({ isOpen, onClose, title, fetchData, onSelect, renderItem }: SearchModalProps<T>) {
+  const [items, setItems] = useState<T[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  
+  // PAGINAÇÃO
+  const [page, setPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const pageSize = 1; 
+
+  useEffect(() => {
+    if (isOpen) { 
+      loadData(); 
+    } else { 
+      setSearch(''); 
+      setPage(1); 
+      setItems([]); 
+      setTotalItems(0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, page]); 
+
+  const loadData = async (termOverride?: string) => {
+    setLoading(true);
+    try {
+      const term = termOverride !== undefined ? termOverride : search;
+      
+      const params = { 
+        Page: page, 
+        PageSize: pageSize, 
+        Search: term
+      };
+
+      const response = await fetchData(params);
+      
+      if (response.data) {
+          const list = response.data.items || [];
+          setItems(list);
+          const total = response.data.totalItems ?? response.data.totalCount ?? response.data.count ?? 0;
+          setTotalItems(total);
+      } else {
+          setItems([]);
+          setTotalItems(0);
+      }
+    } catch (error) { 
+      console.error("Erro modal", error); 
+      setItems([]);
+    } finally { 
+      setLoading(false); 
+    }
+  };
+
+  const handleSearchKey = (e: React.KeyboardEvent) => { 
+    if (e.key === 'Enter') { 
+      setPage(1); 
+      loadData(); 
+    } 
+  };
+
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const hasNextPage = page < totalPages;
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
+        
+        {/* Header */}
+        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+          <h3 className="font-bold text-slate-800">{title}</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-red-500 transition-colors"><X size={20}/></button>
+        </div>
+        
+        {/* Busca */}
+        <div className="p-4 border-b border-slate-100">
+            <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input 
+                  autoFocus 
+                  type="text" 
+                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm" 
+                  placeholder="Buscar..." 
+                  value={search} 
+                  onChange={e => setSearch(e.target.value)} 
+                  onKeyDown={handleSearchKey} 
+                />
+            </div>
+        </div>
+
+        {/* Lista */}
+        <div className="flex-1 overflow-y-auto p-2 space-y-2 bg-slate-50/50 min-h-[250px]">
+            {loading ? (
+                <div className="flex flex-col items-center justify-center p-8 text-blue-600 gap-2 h-full">
+                    <Loader2 className="animate-spin" />
+                    <span className="text-xs font-medium">Carregando...</span>
+                </div>
+            ) : items.length === 0 ? (
+                <div className="text-center p-8 text-slate-400 h-full flex items-center justify-center">
+                    Nada encontrado.
+                </div>
+            ) : (
+                items.map((item, idx) => (
+                <div key={idx} onClick={() => { onSelect(item); onClose(); }} className="bg-white p-3 rounded-lg border border-slate-200 hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition-all flex items-center justify-between group">
+                    <div className="flex-1">{renderItem(item)}</div>
+                    <div className="opacity-0 group-hover:opacity-100 text-blue-600"><CheckCircle2 size={18}/></div>
+                </div>
+            )))}
+        </div>
+
+        {/* FOOTER - PAGINAÇÃO LARANJA CLARO */}
+        <div className="p-3 border-t border-slate-100 flex justify-between items-center text-sm bg-white">
+            <button 
+                disabled={page === 1 || loading} 
+                onClick={() => setPage(p => Math.max(1, p - 1))} 
+                className="p-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors shadow-sm"
+                title="Anterior"
+            >
+                <ChevronLeft size={20} strokeWidth={2.5}/>
+            </button>
+            
+            <span className="text-slate-500 font-medium bg-slate-50 px-3 py-1 rounded-full text-xs border border-slate-100">
+                {totalItems > 0 
+                  ? `Página ${page} de ${totalPages}` 
+                  : '-'
+                }
+            </span>
+            
+            <button 
+                disabled={!hasNextPage || loading} 
+                onClick={() => setPage(p => p + 1)} 
+                className="p-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors shadow-sm"
+                title="Próxima"
+            >
+                <ChevronRight size={20} strokeWidth={2.5}/>
+            </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- COMPONENTE PRINCIPAL ---
 export function FinancialCategories() {
   // --- ESTADOS GERAIS ---
   const [loading, setLoading] = useState(false);
@@ -34,11 +187,8 @@ export function FinancialCategories() {
   const pageSize = 10;
   const [searchTerm, setSearchTerm] = useState('');
 
-  // --- ESTADOS DO MODAL (Seleção de Grupo) ---
+  // --- ESTADO DO MODAL (Seleção de Grupo) ---
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [groups, setGroups] = useState<CategoryGroup[]>([]);
-  const [modalLoading, setModalLoading] = useState(false);
-  const [modalSearch, setModalSearch] = useState('');
 
   // Carregar lista principal ao iniciar
   useEffect(() => {
@@ -71,30 +221,6 @@ export function FinancialCategories() {
       setListLoading(false);
     }
   };
-
-  // --- API: BUSCAR GRUPOS (PARA O MODAL) ---
-  const fetchGroupsForModal = async () => {
-    setModalLoading(true);
-    try {
-      const params = { Page: 1, PageSize: 50, Search: modalSearch }; 
-      const response = await api.get('/api/financial/launch-category-groups/paged', { params });
-      
-      if (response.data.items) {
-        setGroups(response.data.items);
-      }
-    } catch (error) {
-      console.error("Erro ao buscar grupos", error);
-    } finally {
-      setModalLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (isModalOpen) {
-      fetchGroupsForModal();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isModalOpen, modalSearch]);
 
   // --- HANDLERS DE AÇÃO ---
 
@@ -151,15 +277,11 @@ export function FinancialCategories() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // --- DELETE (ATUALIZADO PARA URL PATH) ---
   const handleDelete = async (id: string) => {
     if (!confirm("Deseja excluir esta categoria?")) return;
     try {
-        // Agora passa o ID na URL
         await api.delete(`/api/financial/launch-categories/${id}`);
         fetchCategories();
-        
-        // Se estiver editando o item excluído, cancela a edição
         if (editingId === id) handleCancelEdit();
     } catch (error) {
         console.error("Erro ao excluir", error);
@@ -173,7 +295,6 @@ export function FinancialCategories() {
     setSelectedGroup(null);
   };
 
-  // Handlers UI
   const handleSearchMain = () => { setPage(1); fetchCategories(); };
   const totalPages = Math.ceil(totalItems / pageSize);
 
@@ -307,60 +428,15 @@ export function FinancialCategories() {
         </div>
       </div>
 
-      {/* --- MODAL DE SELEÇÃO DE GRUPO --- */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh]">
-                <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                        <FolderInput className="text-blue-600" size={20}/> Selecionar Grupo
-                    </h3>
-                    <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-red-500"><X size={20}/></button>
-                </div>
-                
-                {/* Busca no Modal */}
-                <div className="p-4 border-b border-slate-100">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                        <input 
-                            className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg outline-none focus:border-blue-500 text-sm"
-                            placeholder="Buscar grupo principal..."
-                            value={modalSearch}
-                            onChange={e => setModalSearch(e.target.value)}
-                            autoFocus
-                        />
-                    </div>
-                </div>
-
-                {/* Lista do Modal */}
-                <div className="overflow-y-auto p-2 space-y-1 flex-1">
-                    {modalLoading ? (
-                        <div className="flex justify-center p-4"><Loader2 className="animate-spin text-blue-500"/></div>
-                    ) : groups.length === 0 ? (
-                        <p className="text-center text-sm text-slate-400 p-4">Nenhum grupo encontrado.</p>
-                    ) : (
-                        groups.map(group => (
-                            <button
-                                key={group.id}
-                                onClick={() => {
-                                    setSelectedGroup(group);
-                                    setIsModalOpen(false);
-                                }}
-                                className={`w-full text-left px-4 py-3 rounded-lg text-sm font-medium flex justify-between items-center transition-colors ${selectedGroup?.id === group.id ? 'bg-blue-50 text-blue-700 border border-blue-100' : 'hover:bg-slate-50 text-slate-700 border border-transparent'}`}
-                            >
-                                {group.name}
-                                {selectedGroup?.id === group.id && <Check size={16} className="text-blue-600"/>}
-                            </button>
-                        ))
-                    )}
-                </div>
-                
-                <div className="p-3 bg-slate-50 border-t text-xs text-center text-slate-400">
-                    Mostrando os primeiros resultados.
-                </div>
-            </div>
-        </div>
-      )}
+      {/* --- MODAL DE SELEÇÃO DE GRUPO (COM PAGINAÇÃO) --- */}
+      <SearchModal<CategoryGroup> 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        title="Selecionar Grupo Principal" 
+        fetchData={(params) => api.get('/api/financial/launch-category-groups/paged', { params })} 
+        onSelect={setSelectedGroup} 
+        renderItem={(group) => (<div className="font-bold text-slate-800">{group.name}</div>)} 
+      />
 
     </div>
   );
