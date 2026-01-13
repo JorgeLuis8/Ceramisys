@@ -3,7 +3,7 @@ import {
   Save, Search, Banknote, ArrowUpCircle, ArrowDownCircle, 
   Loader2, Paperclip, User, Tag, X, Check, FileText, 
   Filter, AlertCircle, ChevronLeft, ChevronRight, Edit, Trash2, 
-  Image as ImageIcon, History, Clock, CheckCircle2 
+  Image as ImageIcon, History, Clock, CheckCircle2, Eye 
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { TableAction } from '@/components/ui/TableAction';
@@ -61,6 +61,17 @@ interface HistoryItem {
   createdOn: string;
   changeType: string;
 }
+
+// --- HELPER PARA IMAGENS ---
+const getSafeImageUrl = (url: string) => {
+    if (!url) return '';
+    if (url.startsWith('http') || url.startsWith('blob:')) return url;
+    // Se for caminho relativo, tenta concatenar com a URL base da API
+    // Ajuste conforme a sua configuração de API, ex: 'https://api.seusite.com/'
+    const baseUrl = api.defaults.baseURL || ''; 
+    // Remove barra duplicada se houver
+    return `${baseUrl.replace(/\/$/, '')}/${url.replace(/^\//, '')}`;
+};
 
 // --- COMPONENTE DE MODAL DE BUSCA (COM PAGINAÇÃO LARANJA) ---
 interface SearchModalProps<T> {
@@ -187,7 +198,6 @@ function SearchModal<T>({ isOpen, onClose, title, fetchData, onSelect, renderIte
             <button 
                 disabled={page === 1 || loading} 
                 onClick={() => setPage(p => Math.max(1, p - 1))} 
-                // BOTÃO LARANJA AQUI
                 className="p-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors shadow-sm"
                 title="Anterior"
             >
@@ -204,7 +214,6 @@ function SearchModal<T>({ isOpen, onClose, title, fetchData, onSelect, renderIte
             <button 
                 disabled={!hasNextPage || loading} 
                 onClick={() => setPage(p => p + 1)} 
-                // BOTÃO LARANJA AQUI
                 className="p-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors shadow-sm"
                 title="Próxima"
             >
@@ -235,7 +244,10 @@ export function Transactions() {
   
   const [selectedCategory, setSelectedCategory] = useState<CategoryItem | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerItem | null>(null);
+  
+  // Imagens e Comprovantes
   const [files, setFiles] = useState<FileList | null>(null);
+  const [filePreviews, setFilePreviews] = useState<string[]>([]); // URLs temporárias para preview
   const [existingImages, setExistingImages] = useState<string[]>([]); 
   const [proofsToDelete, setProofsToDelete] = useState<string[]>([]); 
 
@@ -291,7 +303,6 @@ export function Transactions() {
         const response = await api.get('/api/financial/launch/paged', { params });
         if (response.data.items) {
             setLaunches(response.data.items);
-            // Corrige leitura do total se vier diferente
             setTotalItems(response.data.totalItems ?? response.data.totalCount ?? 0);
         } else {
             setLaunches([]);
@@ -346,7 +357,7 @@ export function Transactions() {
     }
   };
 
-  // ... (Edição e Salvar iguais ao anterior) ...
+  // ... (Edição e Salvar) ...
   const handleEdit = (item: Launch) => {
     setEditingId(item.id);
     setFormType(item.type);
@@ -366,6 +377,7 @@ export function Transactions() {
     setExistingImages(item.imageProofsUrls || []);
     setProofsToDelete([]);
     setFiles(null);
+    setFilePreviews([]);
 
     if (formTopRef.current) formTopRef.current.scrollIntoView({ behavior: 'smooth' });
   };
@@ -373,8 +385,21 @@ export function Transactions() {
   const handleCancelEdit = () => {
     setEditingId(null);
     setDescription(''); setAmount(''); setSelectedCategory(null); setSelectedCustomer(null); 
-    setFiles(null); setExistingImages([]); setProofsToDelete([]);
+    setFiles(null); 
+    setFilePreviews([]);
+    setExistingImages([]); 
+    setProofsToDelete([]);
     setFormType(LaunchType.Expense);
+  };
+
+  // Handler para Input de Arquivo (Com Preview)
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+        setFiles(e.target.files);
+        // Gera URLs temporárias para preview
+        const newPreviews = Array.from(e.target.files).map(file => URL.createObjectURL(file));
+        setFilePreviews(newPreviews);
+    }
   };
 
   const handleMarkImageForDeletion = (url: string) => {
@@ -385,7 +410,9 @@ export function Transactions() {
   const handleSave = async () => {
     if (!description || !amount) { alert("Preencha Descrição e Valor."); return; }
     if (formType === LaunchType.Expense && !selectedCategory) { alert("Selecione a Categoria."); return; }
-    if (formType === LaunchType.Income && !selectedCustomer) { alert("Selecione o Cliente."); return; }
+    
+    // NOTA: Cliente não é mais obrigatório na entrada
+    // if (formType === LaunchType.Income && !selectedCustomer) { alert("Selecione o Cliente."); return; }
 
     setLoading(true);
     try {
@@ -422,6 +449,7 @@ export function Transactions() {
         fetchLaunchHistory(); 
 
     } catch (error) {
+        console.error("Erro save", error);
         alert("Erro ao salvar lançamento.");
     } finally {
         setLoading(false);
@@ -441,7 +469,7 @@ export function Transactions() {
       
       <div className="flex justify-between items-center" ref={formTopRef}>
         <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <Banknote className="text-blue-600"/> Lançamentos Financeiros
+            <Banknote className="text-blue-600"/> Lançamentos Financeiros 
         </h1>
       </div>
       
@@ -464,7 +492,7 @@ export function Transactions() {
             <div className="md:col-span-3"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Descrição</label><input type="text" className={inputClass} value={description} onChange={e => setDescription(e.target.value)} /></div>
             <div className="md:col-span-1"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Valor (R$)</label><input type="number" className={`${inputClass} font-bold text-lg ${formType === LaunchType.Income ? 'text-emerald-600' : 'text-red-600'}`} placeholder="0,00" value={amount} onChange={e => setAmount(e.target.value)} /></div>
             
-            {/* SELETORES QUE ABREM MODAL */}
+            {/* SELETORES */}
             {formType === LaunchType.Expense && (
                 <div className="md:col-span-4 animate-fade-in">
                     <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Categoria da Despesa</label>
@@ -478,7 +506,9 @@ export function Transactions() {
             )}
             {formType === LaunchType.Income && (
                 <div className="md:col-span-4 animate-fade-in">
-                    <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Cliente (Pagador)</label>
+                    <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">
+                        Cliente (Pagador) <span className="font-normal text-slate-400 text-[10px] ml-1">(Opcional)</span>
+                    </label>
                     <div onClick={() => setIsCustomerModalOpen(true)} className="cursor-pointer relative group">
                         <div className="w-full px-4 py-2.5 border border-slate-300 rounded-lg bg-slate-50 flex items-center justify-between group-hover:border-blue-400 transition-colors">
                             <span className={selectedCustomer ? "text-slate-800 font-medium" : "text-slate-400 italic"}>{selectedCustomer ? selectedCustomer.name : "Selecione o cliente..."}</span>
@@ -495,10 +525,38 @@ export function Transactions() {
 
             <div className="md:col-span-4">
                 <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Comprovantes</label>
-                {existingImages.length > 0 && (<div className="mb-3 flex flex-wrap gap-2">{existingImages.map((url, idx) => (<div key={idx} className="relative group border border-slate-200 rounded-lg overflow-hidden w-20 h-20"><img src={url} alt="Comprovante" className="w-full h-full object-cover"/><button onClick={() => handleMarkImageForDeletion(url)} className="absolute top-0 right-0 bg-red-500 text-white p-1 rounded-bl-lg opacity-0 group-hover:opacity-100 transition-opacity"><X size={12}/></button></div>))}</div>)}
-                <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 bg-slate-50 flex flex-col items-center justify-center text-slate-500 hover:bg-slate-100 transition-all relative cursor-pointer">
-                    <input type="file" multiple className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => setFiles(e.target.files)} />
-                    <Paperclip className="mb-1 text-blue-400"/><span className="text-xs">{files && files.length > 0 ? `${files.length} arquivo(s) novo(s)` : 'Anexar Novos Arquivos'}</span>
+                
+                {/* PREVIEW DE IMAGENS JÁ SALVAS (Back-end) */}
+                {existingImages.length > 0 && (
+                    <div className="mb-3 flex flex-wrap gap-2">
+                        {existingImages.map((url, idx) => (
+                            <div key={idx} className="relative group border border-slate-200 rounded-lg overflow-hidden w-24 h-24 bg-slate-100">
+                                <img src={getSafeImageUrl(url)} alt="Comprovante" className="w-full h-full object-cover"/>
+                                <button onClick={() => handleMarkImageForDeletion(url)} className="absolute top-0 right-0 bg-red-500 text-white p-1 rounded-bl-lg opacity-0 group-hover:opacity-100 transition-opacity"><X size={14}/></button>
+                                {/* Botão para ver imagem full se quiser adicionar depois */}
+                                <a href={getSafeImageUrl(url)} target="_blank" rel="noreferrer" className="absolute bottom-0 left-0 bg-black/50 text-white p-1 rounded-tr-lg opacity-0 group-hover:opacity-100"><Eye size={14}/></a>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* PREVIEW DE NOVOS ARQUIVOS SELECIONADOS */}
+                {filePreviews.length > 0 && (
+                    <div className="mb-3">
+                        <p className="text-[10px] uppercase font-bold text-blue-600 mb-2">Novos Arquivos Selecionados:</p>
+                        <div className="flex flex-wrap gap-2">
+                            {filePreviews.map((url, idx) => (
+                                <div key={`new-${idx}`} className="relative border border-blue-200 rounded-lg overflow-hidden w-20 h-20 bg-blue-50">
+                                    <img src={url} alt="Preview" className="w-full h-full object-cover"/>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 bg-slate-50 flex flex-col items-center justify-center text-slate-500 hover:bg-slate-100 transition-all relative cursor-pointer group">
+                    <input type="file" multiple className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleFileChange} />
+                    <Paperclip className="mb-1 text-blue-400 group-hover:scale-110 transition-transform"/><span className="text-xs font-medium">{files && files.length > 0 ? `${files.length} arquivo(s) selecionado(s)` : 'Clique para Anexar Novos Arquivos'}</span>
                 </div>
             </div>
         </div>
