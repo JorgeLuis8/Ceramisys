@@ -3,7 +3,35 @@ import { FileBarChart, Filter, Download, TrendingUp, TrendingDown, Wallet, Arrow
 import { Button } from '@/components/ui/Button';
 import { api } from '@/lib/api';
 
-// --- ENUMS E HELPERS ---
+// --- HELPER DE FORMATAÇÃO ---
+const formatMoney = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+
+// Helper para data (evita fuso horário)
+const formatDate = (dateStr?: string) => {
+    if (!dateStr) return '-';
+    const cleanDate = dateStr.split('T')[0]; 
+    const [year, month, day] = cleanDate.split('-');
+    return `${day}/${month}/${year}`;
+};
+
+// Helper para iniciar inputs com hoje (Local Time)
+const getTodayLocal = () => {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+// Primeiro dia do mês
+const getFirstDayOfMonth = () => {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}-01`;
+};
+
+// --- ENUMS APENAS PARA O FILTRO (Onde enviamos ID) ---
 const PaymentMethodDescriptions: Record<number, string> = {
   0: "Dinheiro", 1: "CXPJ", 2: "BBJ", 3: "BBJN", 4: "CHEQUE", 5: "BradescoPJ", 6: "CXJ", 7: "Débito Automático"
 };
@@ -13,31 +41,36 @@ const StatusDescriptions: Record<number, string> = {
   1: "Pago"
 };
 
-const formatMoney = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
-const formatDate = (dateStr: string) => dateStr ? new Date(dateStr).toLocaleDateString('pt-BR') : '-';
-
-const getCurrentMonthDates = () => {
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    return {
-        start: firstDay.toISOString().split('T')[0],
-        end: lastDay.toISOString().split('T')[0]
-    };
-};
-
-// --- INTERFACES ---
+// --- INTERFACES (Baseadas no seu JSON exato) ---
 interface DropdownItem { id: string; name: string; }
 
-// Interfaces do Relatório (JSON)
-interface AccountItem { accountName: string; totalIncome: number; }
-interface CategoryItem { categoryName: string; totalExpense: number; }
-interface GroupItem { groupName: string; groupExpense: number; categories: CategoryItem[]; }
-interface ExtractItem { accountName: string; date: string; description: string; value: number; type: string; }
+interface AccountItem { 
+    accountName: string; // "CXPJ", "Dinheiro"
+    totalIncome: number; 
+}
+
+interface CategoryItem { 
+    categoryName: string; 
+    totalExpense: number; 
+}
+
+interface GroupItem { 
+    groupName: string; 
+    groupExpense: number; 
+    categories: CategoryItem[]; 
+}
+
+interface ExtractItem { 
+    accountName: string; 
+    date: string; 
+    description: string; 
+    value: number; 
+    type: string; // "Entrada"
+}
 
 interface BalanceResponse {
-  startDate: string;
-  endDate: string;
+  startDate: string | null;
+  endDate: string | null;
   totalIncomeOverall: number;
   totalExpenseOverall: number;
   totalExtractOverall: number;
@@ -53,44 +86,35 @@ export function VerificationBalance() {
   const [reportData, setReportData] = useState<BalanceResponse | null>(null);
 
   // --- ESTADOS DOS FILTROS ---
-  const { start, end } = getCurrentMonthDates();
-  const [startDate, setStartDate] = useState(start);
-  const [endDate, setEndDate] = useState(end);
+  const [startDate, setStartDate] = useState(getFirstDayOfMonth());
+  const [endDate, setEndDate] = useState(getTodayLocal());
   const [search, setSearch] = useState('');
   
-  // Filtros de Seleção
   const [paymentMethod, setPaymentMethod] = useState('');
   const [status, setStatus] = useState('');
   const [groupId, setGroupId] = useState('');
   const [categoryId, setCategoryId] = useState('');
 
-  // Listas para os Dropdowns
+  // Listas Dropdown
   const [groupsList, setGroupsList] = useState<DropdownItem[]>([]);
   const [categoriesList, setCategoriesList] = useState<DropdownItem[]>([]);
 
-  // --- EFEITOS ---
   useEffect(() => {
-    fetchFiltersData(); // Carrega as listas de Grupo/Categoria
-    fetchReport();      // Carrega o relatório inicial
+    fetchFiltersData();
+    fetchReport();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // --- API: CARREGAR LISTAS DE FILTROS ---
   const fetchFiltersData = async () => {
     try {
-        // 1. Busca Categorias
         const catRes = await api.get('/api/financial/launch-categories/paged', { params: { Page: 1, PageSize: 100 } });
         if(catRes.data.items) setCategoriesList(catRes.data.items);
 
-        // 2. Busca Grupos (CORRIGIDO AQUI)
         const groupRes = await api.get('/api/financial/launch-category-groups/paged', { params: { Page: 1, PageSize: 100 } }); 
         if(groupRes.data.items) setGroupsList(groupRes.data.items);
-    } catch (error) {
-        console.error("Erro ao carregar filtros auxiliares", error);
-    }
+    } catch (error) { console.error("Erro filtros", error); }
   };
 
-  // --- CONSTRUÇÃO DOS PARÂMETROS ---
   const buildParams = () => {
       return {
         StartDate: startDate,
@@ -103,22 +127,21 @@ export function VerificationBalance() {
       };
   };
 
-  // --- API: GERAR RELATÓRIO ---
   const fetchReport = async () => {
     setLoading(true);
     try {
       const params = buildParams();
       const response = await api.get('/api/financial/dashboard-financial/with-extract', { params });
+      // Define os dados exatamente como vieram do JSON
       setReportData(response.data);
     } catch (error) {
-      console.error("Erro ao gerar balancete", error);
-      alert("Não foi possível carregar o relatório.");
+      console.error("Erro report", error);
+      alert("Erro ao carregar relatório.");
     } finally {
       setLoading(false);
     }
   };
 
-  // --- API: GERAR PDF ---
   const handleExportPdf = async () => {
     setPdfLoading(true);
     try {
@@ -128,43 +151,28 @@ export function VerificationBalance() {
             responseType: 'blob'
         });
 
-        if (response.data.type === 'application/json') {
-            const text = await response.data.text();
-            alert("Erro ao gerar PDF: " + text);
-            return;
-        }
-
         const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
         const link = document.createElement('a');
         link.href = url;
         link.setAttribute('download', `balancete_${startDate}.pdf`);
         document.body.appendChild(link);
         link.click();
-        
         link.remove();
         window.URL.revokeObjectURL(url);
-
     } catch (error) {
-        console.error("Erro PDF:", error);
-        alert("Erro ao tentar baixar o PDF.");
+        console.error("Erro PDF", error);
+        alert("Erro ao gerar PDF.");
     } finally {
         setPdfLoading(false);
     }
   };
 
-  // Limpar Filtros
   const handleClearFilters = () => {
-      setSearch('');
-      setPaymentMethod('');
-      setStatus('');
-      setGroupId('');
-      setCategoryId('');
-      const { start, end } = getCurrentMonthDates();
-      setStartDate(start);
-      setEndDate(end);
+      setSearch(''); setPaymentMethod(''); setStatus(''); setGroupId(''); setCategoryId('');
+      setStartDate(getFirstDayOfMonth());
+      setEndDate(getTodayLocal());
   };
 
-  // Estilos Comuns
   const inputClass = "w-full px-3 py-2 border border-slate-300 rounded-lg outline-none text-xs bg-white text-slate-700 h-9";
   const labelClass = "text-[10px] font-bold text-slate-500 uppercase mb-1 block";
 
@@ -180,111 +188,62 @@ export function VerificationBalance() {
         </div>
       </div>
       
-      {/* --- ÁREA DE FILTROS COMPLETA --- */}
+      {/* FILTROS */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-         
-         {/* Linha 1: Datas e Busca */}
          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
              <div className="md:col-span-2">
                  <label className={labelClass}>Buscar (Descrição)</label>
                  <div className="relative">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14}/>
-                    <input 
-                        type="text" 
-                        className={`${inputClass} pl-8`}
-                        value={search} 
-                        onChange={e => setSearch(e.target.value)}
-                        placeholder="Pesquisar..."
-                        onKeyDown={e => e.key === 'Enter' && fetchReport()}
-                    />
+                    <input type="text" className={`${inputClass} pl-8`} value={search} onChange={e => setSearch(e.target.value)} placeholder="Pesquisar..." onKeyDown={e => e.key === 'Enter' && fetchReport()}/>
                  </div>
              </div>
-             <div>
-                 <label className={labelClass}>Data Início</label>
-                 <input type="date" className={inputClass} value={startDate} onChange={e => setStartDate(e.target.value)}/>
-             </div>
-             <div>
-                 <label className={labelClass}>Data Fim</label>
-                 <input type="date" className={inputClass} value={endDate} onChange={e => setEndDate(e.target.value)}/>
-             </div>
+             <div><label className={labelClass}>Data Início</label><input type="date" className={inputClass} value={startDate} onChange={e => setStartDate(e.target.value)}/></div>
+             <div><label className={labelClass}>Data Fim</label><input type="date" className={inputClass} value={endDate} onChange={e => setEndDate(e.target.value)}/></div>
          </div>
 
-         {/* Linha 2: Dropdowns Específicos */}
          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-             
              <div>
                  <label className={labelClass}>Grupo</label>
-                 <div className="relative">
-                     <Layers className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14}/>
-                     <select className={`${inputClass} pl-8`} value={groupId} onChange={e => setGroupId(e.target.value)}>
-                         <option value="">Todos os Grupos</option>
-                         {groupsList.map(g => (<option key={g.id} value={g.id}>{g.name}</option>))}
-                     </select>
-                 </div>
+                 <select className={inputClass} value={groupId} onChange={e => setGroupId(e.target.value)}>
+                     <option value="">Todos os Grupos</option>
+                     {groupsList.map(g => (<option key={g.id} value={g.id}>{g.name}</option>))}
+                 </select>
              </div>
-
              <div>
                  <label className={labelClass}>Categoria</label>
-                 <div className="relative">
-                     <Tag className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14}/>
-                     <select className={`${inputClass} pl-8`} value={categoryId} onChange={e => setCategoryId(e.target.value)}>
-                         <option value="">Todas as Categorias</option>
-                         {categoriesList.map(c => (<option key={c.id} value={c.id}>{c.name}</option>))}
-                     </select>
-                 </div>
+                 <select className={inputClass} value={categoryId} onChange={e => setCategoryId(e.target.value)}>
+                     <option value="">Todas as Categorias</option>
+                     {categoriesList.map(c => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                 </select>
              </div>
-
              <div>
                  <label className={labelClass}>Conta / Método</label>
                  <select className={inputClass} value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
                      <option value="">Todas as Contas</option>
-                     {Object.entries(PaymentMethodDescriptions).map(([id, label]) => (
-                         <option key={id} value={id}>{label}</option>
-                     ))}
+                     {Object.entries(PaymentMethodDescriptions).map(([id, label]) => (<option key={id} value={id}>{label}</option>))}
                  </select>
              </div>
-
              <div>
                  <label className={labelClass}>Status</label>
                  <select className={inputClass} value={status} onChange={e => setStatus(e.target.value)}>
                      <option value="">Todos</option>
-                     {Object.entries(StatusDescriptions).map(([id, label]) => (
-                         <option key={id} value={id}>{label}</option>
-                     ))}
+                     {Object.entries(StatusDescriptions).map(([id, label]) => (<option key={id} value={id}>{label}</option>))}
                  </select>
              </div>
          </div>
 
-         {/* Botões de Ação */}
          <div className="flex justify-end gap-2 mt-5 border-t border-slate-100 pt-4">
              <Button variant="outline" icon={X} onClick={handleClearFilters}>Limpar</Button>
-             
-             <Button 
-                variant="primary" 
-                icon={loading ? Loader2 : Filter} 
-                onClick={fetchReport} 
-                disabled={loading}
-                className="w-32"
-             >
-                 {loading ? '...' : 'GERAR'}
-             </Button>
-             
-             <Button 
-                variant="outline" 
-                icon={pdfLoading ? Loader2 : FileText} 
-                onClick={handleExportPdf} 
-                disabled={pdfLoading}
-                className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 w-32"
-             >
-                 {pdfLoading ? '...' : 'PDF'}
-             </Button>
+             <Button variant="primary" icon={loading ? Loader2 : Filter} onClick={fetchReport} disabled={loading} className="w-32">{loading ? '...' : 'GERAR'}</Button>
+             <Button variant="outline" icon={pdfLoading ? Loader2 : FileText} onClick={handleExportPdf} disabled={pdfLoading} className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 w-32">{pdfLoading ? '...' : 'PDF'}</Button>
          </div>
       </div>
 
-      {/* --- CONTEÚDO DO RELATÓRIO --- */}
+      {/* RELATÓRIO */}
       {reportData && (
         <>
-            {/* CARDS DE RESUMO (KPIs) */}
+            {/* KPIs */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-fade-in">
                 <div className="bg-emerald-50 border border-emerald-100 p-5 rounded-xl shadow-sm">
                     <div className="flex justify-between items-start mb-2">
@@ -323,7 +282,7 @@ export function VerificationBalance() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 
-                {/* --- DETALHAMENTO DE ENTRADAS (CONTAS) --- */}
+                {/* LISTA ENTRADAS */}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col h-full">
                     <h3 className="font-bold text-slate-800 mb-4 border-b pb-3 flex items-center gap-2">
                         <TrendingUp size={18} className="text-emerald-500"/> Entradas por Conta
@@ -342,10 +301,10 @@ export function VerificationBalance() {
                     </div>
                 </div>
 
-                {/* --- DETALHAMENTO DE SAÍDAS (GRUPOS) --- */}
+                {/* LISTA SAÍDAS */}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col h-full">
                     <h3 className="font-bold text-slate-800 mb-4 border-b pb-3 flex items-center gap-2">
-                        <TrendingDown size={18} className="text-red-500"/> Saídas por Grupo de Categoria
+                        <TrendingDown size={18} className="text-red-500"/> Saídas por Grupo
                     </h3>
                     <div className="space-y-4 flex-1 overflow-y-auto max-h-96 pr-2">
                         {reportData.groups.length === 0 ? (
@@ -353,7 +312,6 @@ export function VerificationBalance() {
                         ) : (
                             reportData.groups.map((group, idx) => (
                                 <div key={idx} className="border border-slate-100 rounded-lg overflow-hidden">
-                                    {/* CABEÇALHO DO GRUPO */}
                                     <div className="bg-slate-50 p-3 flex justify-between items-center">
                                         <span className="font-bold text-slate-800 text-sm flex items-center gap-2">
                                             <div className="w-2 h-2 rounded-full bg-slate-400"></div>
@@ -361,8 +319,6 @@ export function VerificationBalance() {
                                         </span>
                                         <span className="font-bold text-red-600 text-sm">{formatMoney(group.groupExpense)}</span>
                                     </div>
-                                    
-                                    {/* LISTA DE CATEGORIAS DENTRO DO GRUPO */}
                                     <div className="bg-white divide-y divide-slate-50">
                                         {group.categories.map((cat, cIdx) => (
                                             <div key={cIdx} className="flex justify-between items-center p-2 pl-8 text-xs hover:bg-slate-50 transition-colors">
@@ -372,9 +328,6 @@ export function VerificationBalance() {
                                                 <span className="text-slate-600 font-medium">{formatMoney(cat.totalExpense)}</span>
                                             </div>
                                         ))}
-                                        {group.categories.length === 0 && (
-                                            <div className="p-2 text-center text-xs text-slate-300">Sem categorias vinculadas</div>
-                                        )}
                                     </div>
                                 </div>
                             ))
@@ -383,11 +336,11 @@ export function VerificationBalance() {
                 </div>
             </div>
 
-            {/* --- EXTRATOS MANUAIS --- */}
+            {/* TABELA EXTRATOS */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="p-4 border-b border-slate-100 bg-slate-50">
                     <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                        <ArrowRightLeft size={18} className="text-blue-500"/> Detalhamento de Extratos Manuais
+                        <ArrowRightLeft size={18} className="text-blue-500"/> Detalhamento de Extratos
                     </h3>
                 </div>
                 <div className="overflow-x-auto">

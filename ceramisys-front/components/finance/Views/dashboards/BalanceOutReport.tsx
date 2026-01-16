@@ -106,7 +106,6 @@ export function BalanceOutReport() {
             </h1>
             <p className="text-slate-500">Análise de despesas por categoria.</p>
         </div>
-        <Button variant="outline" icon={Download} onClick={handleExportPdf}>EXPORTAR PDF</Button>
       </div>
       
       {/* --- FILTROS --- */}

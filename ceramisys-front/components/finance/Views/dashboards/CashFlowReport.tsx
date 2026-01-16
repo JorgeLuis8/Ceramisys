@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart3, Filter, Search, Calendar, Download, Loader2, ArrowUpCircle, ArrowDownCircle, Wallet } from 'lucide-react';
+// 1. Adicionado o ícone 'X' aos imports
+import { BarChart3, Filter, Search, Download, Loader2, ArrowUpCircle, ArrowDownCircle, Wallet, Users, Tags, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { api } from '@/lib/api';
 
@@ -8,10 +9,14 @@ const PaymentMethodDescriptions: Record<number, string> = {
   0: "Dinheiro", 1: "CXPJ", 2: "BBJ", 3: "BBJN", 4: "CHEQUE", 5: "BradescoPJ", 6: "CXJ", 7: "Débito Automático"
 };
 
+const LaunchTypeDescriptions: Record<number, string> = {
+  1: "Entrada",
+  2: "Saída"
+};
+
 const formatMoney = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 const formatDate = (dateStr: string) => dateStr ? new Date(dateStr).toLocaleDateString('pt-BR') : '-';
 
-// Helper para pegar datas do mês atual
 const getCurrentMonthDates = () => {
     const now = new Date();
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -27,7 +32,7 @@ interface CashFlowItem {
   launchDate: string;
   description: string;
   amount: number;
-  type: number;
+  type: number; // 1 ou 2
   categoryName: string;
   customerName: string;
   paymentMethod: string;
@@ -47,23 +52,25 @@ export function CashFlowReport() {
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState<CashFlowResponse | null>(null);
 
-  // Define o estado inicial com o MÊS ATUAL
+  // Datas
   const { start, end } = getCurrentMonthDates();
   const [startDate, setStartDate] = useState(start); 
   const [endDate, setEndDate] = useState(end);
   
-  const [searchTerm, setSearchTerm] = useState('');
+  // Filtros
+  const [searchTerm, setSearchTerm] = useState(''); 
+  const [searchCategoryOrCustomer, setSearchCategoryOrCustomer] = useState(''); 
   const [paymentMethod, setPaymentMethod] = useState('');
+  const [launchType, setLaunchType] = useState(''); 
   
   // Paginação
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
-  // --- EFEITO: CARREGA AUTOMATICAMENTE AO INICIAR ---
   useEffect(() => {
     fetchReport();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]); // Carrega na montagem (page=1) e quando mudar a página
+  }, [page]);
 
   // --- API ---
   const fetchReport = async () => {
@@ -75,10 +82,11 @@ export function CashFlowReport() {
         StartDate: startDate,
         EndDate: endDate,
         Search: searchTerm || undefined,
-        PaymentMethod: paymentMethod ? Number(paymentMethod) : undefined
+        SearchCategoryOrCustomer: searchCategoryOrCustomer || undefined, 
+        PaymentMethod: paymentMethod ? Number(paymentMethod) : undefined,
+        type: launchType ? Number(launchType) : undefined 
       };
 
-      // Endpoint correto
       const response = await api.get('/api/financial/dashboard-financial/flow-report', { params });
       setReportData(response.data);
 
@@ -90,14 +98,45 @@ export function CashFlowReport() {
   };
 
   const handleGenerate = () => {
-    setPage(1); // Reseta para primeira página
-    fetchReport(); // Força nova busca
+    setPage(1);
+    fetchReport();
   };
+
+  // --- 2. NOVA FUNÇÃO: LIMPAR FILTROS ---
+  const handleClearFilters = () => {
+    // Reseta datas para o padrão (mês atual)
+    const { start, end } = getCurrentMonthDates();
+    setStartDate(start);
+    setEndDate(end);
+
+    // Limpa campos de texto
+    setSearchTerm('');
+    setSearchCategoryOrCustomer('');
+
+    // Limpa selects (voltando para a opção "Todos" que tem valor vazio)
+    setPaymentMethod('');
+    setLaunchType('');
+    
+    // Volta para a primeira página
+    setPage(1);
+    
+    // Opcional: Se quiser que a limpeza já dispare a busca, descomente a linha abaixo.
+    // fetchReport(); 
+  };
+
 
   // --- EXPORTAR PDF ---
   const handleExportPdf = async () => {
     try {
-        const params = { StartDate: startDate, EndDate: endDate, Search: searchTerm };
+        const params = { 
+            StartDate: startDate, 
+            EndDate: endDate, 
+            Search: searchTerm || undefined,
+            SearchCategoryOrCustomer: searchCategoryOrCustomer || undefined,
+            PaymentMethod: paymentMethod ? Number(paymentMethod) : undefined,
+            type: launchType ? Number(launchType) : undefined
+        };
+        
         const response = await api.get('/api/financial/dashboard-financial/flow-report/pdf', { 
             params, responseType: 'blob' 
         });
@@ -129,35 +168,71 @@ export function CashFlowReport() {
       
       {/* --- FILTROS --- */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-            <div className="md:col-span-2">
-                <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Buscar</label>
+         {/* Linha 1: Buscas textuais e Datas */}
+         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end mb-4">
+            {/* Busca Geral (Descrição) */}
+            <div>
+                <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Descrição / Obs</label>
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                     <input 
                         type="text" 
-                        className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg outline-none text-sm" 
-                        placeholder="Descrição, Cliente, Categoria..."
+                        className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg outline-none text-sm transition-all focus:border-blue-500" 
+                        placeholder="Buscar por descrição..."
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && handleGenerate()} // Busca ao dar Enter
+                        onKeyDown={e => e.key === 'Enter' && handleGenerate()}
                     />
                 </div>
             </div>
+
+            {/* Busca Categoria/Cliente */}
+            <div>
+                <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Cliente ou Categoria</label>
+                <div className="relative">
+                    <Users className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <input 
+                        type="text" 
+                        className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg outline-none text-sm transition-all focus:border-blue-500" 
+                        placeholder="Nome do cliente ou categoria..."
+                        value={searchCategoryOrCustomer}
+                        onChange={e => setSearchCategoryOrCustomer(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleGenerate()}
+                    />
+                </div>
+            </div>
+
+            {/* Data Inicio */}
             <div>
                 <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Início</label>
                 <input type="date" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none text-sm" value={startDate} onChange={e => setStartDate(e.target.value)}/>
             </div>
+            
+            {/* Data Fim */}
             <div>
                 <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Fim</label>
                 <input type="date" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none text-sm" value={endDate} onChange={e => setEndDate(e.target.value)}/>
             </div>
-            <Button variant="primary" icon={loading ? Loader2 : Filter} onClick={handleGenerate} disabled={loading}>
-                {loading ? 'ATUALIZANDO...' : 'ATUALIZAR'}
-            </Button>
          </div>
          
-         <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-4">
+         {/* Linha 2: Dropdowns e Botões de Ação */}
+         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end pt-4 border-t border-slate-100">
+             {/* Filtro de Tipo (Entrada/Saída) */}
+             <div>
+                 <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Tipo de Lançamento</label>
+                 <select 
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none text-sm bg-white" 
+                    value={launchType} 
+                    onChange={e => setLaunchType(e.target.value)}
+                 >
+                     <option value="">Todos os Tipos</option>
+                     {Object.entries(LaunchTypeDescriptions).map(([id, label]) => (
+                         <option key={id} value={id}>{label}</option>
+                     ))}
+                 </select>
+             </div>
+
+             {/* Método de Pagamento */}
              <div>
                  <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Método Pagamento</label>
                  <select className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none text-sm bg-white" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
@@ -166,6 +241,27 @@ export function CashFlowReport() {
                          <option key={id} value={id}>{label}</option>
                      ))}
                  </select>
+             </div>
+
+             {/* Espaço Vazio para alinhamento */}
+             <div className="hidden md:block"></div>
+
+             {/* --- 3. BOTÕES DE AÇÃO (LIMPAR E FILTRAR) --- */}
+             <div className="flex items-center gap-2">
+                <Button 
+                    variant="outline" 
+                    // Estilização para o botão de limpar ficar vermelho ao passar o mouse
+                    className="px-3 border-slate-300 text-slate-500 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors"
+                    title="Limpar todos os filtros"
+                    onClick={handleClearFilters}
+                    disabled={loading}
+                 >
+                    <X size={20} />
+                 </Button>
+
+                 <Button variant="primary" className="w-full flex-1" icon={loading ? Loader2 : Filter} onClick={handleGenerate} disabled={loading}>
+                     {loading ? 'BUSCANDO...' : 'FILTRAR'}
+                 </Button>
              </div>
          </div>
       </div>
@@ -209,14 +305,15 @@ export function CashFlowReport() {
                         <th className="p-4">Descrição</th>
                         <th className="p-4">Categoria / Cliente</th>
                         <th className="p-4 text-center">Pagamento</th>
+                        <th className="p-4 text-center">Tipo</th>
                         <th className="p-4 text-right">Valor</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                     {loading ? (
-                        <tr><td colSpan={5} className="p-8 text-center"><Loader2 className="animate-spin inline text-blue-500"/> Carregando...</td></tr>
+                        <tr><td colSpan={6} className="p-8 text-center"><Loader2 className="animate-spin inline text-blue-500"/> Carregando...</td></tr>
                     ) : !reportData || reportData.items.length === 0 ? (
-                        <tr><td colSpan={5} className="p-8 text-center text-slate-400 italic">Nenhum movimento encontrado neste período.</td></tr>
+                        <tr><td colSpan={6} className="p-8 text-center text-slate-400 italic">Nenhum movimento encontrado neste período.</td></tr>
                     ) : (
                         reportData.items.map((item, idx) => (
                             <tr key={idx} className="hover:bg-slate-50 transition-colors">
@@ -228,12 +325,17 @@ export function CashFlowReport() {
                                 </td>
                                 <td className="p-4 text-slate-600">
                                     <div className="flex flex-col text-xs">
-                                        <span className="font-bold">{item.categoryName || '-'}</span>
-                                        <span className="text-slate-400">{item.customerName || '-'}</span>
+                                        <span className="font-bold flex items-center gap-1"><Tags size={10}/> {item.categoryName || '-'}</span>
+                                        <span className="text-slate-400 flex items-center gap-1"><Users size={10}/> {item.customerName || '-'}</span>
                                     </div>
                                 </td>
                                 <td className="p-4 text-center text-slate-500 text-xs">
                                     {item.paymentMethod}
+                                </td>
+                                <td className="p-4 text-center text-xs">
+                                     <span className={`px-2 py-1 rounded-full border ${item.type === 1 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                                        {item.type === 1 ? 'Entrada' : 'Saída'}
+                                     </span>
                                 </td>
                                 <td className={`p-4 text-right font-bold ${item.type === 1 ? 'text-emerald-600' : 'text-red-600'}`}>
                                     {item.type === 1 ? '+' : '-'} {formatMoney(item.amount)}

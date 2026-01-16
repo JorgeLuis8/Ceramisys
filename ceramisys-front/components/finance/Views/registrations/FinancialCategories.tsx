@@ -35,7 +35,7 @@ function SearchModal<T>({ isOpen, onClose, title, fetchData, onSelect, renderIte
   // PAGINAÇÃO
   const [page, setPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const pageSize = 1; 
+  const pageSize = 5; 
 
   useEffect(() => {
     if (isOpen) { 
