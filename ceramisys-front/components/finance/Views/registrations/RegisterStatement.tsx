@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FileText, Save, Loader2, DollarSign, Calendar, MessageSquare, CreditCard, Filter, X, User, Edit, Trash2, Plus } from 'lucide-react';
+import { FileText, Save, Loader2, DollarSign, Calendar, MessageSquare, CreditCard, Filter, X, User, Edit, Trash2, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { api } from '@/lib/api';
 
@@ -9,7 +9,24 @@ const PaymentMethodDescriptions: Record<number, string> = {
 };
 
 const formatMoney = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
-const formatDate = (dateStr: string) => dateStr ? new Date(dateStr).toLocaleDateString('pt-BR') : '-';
+
+// Helper para evitar problema de timezone ao exibir
+const formatDate = (dateStr?: string) => {
+    if (!dateStr) return '-';
+    // Pega apenas a parte da data YYYY-MM-DD
+    const cleanDate = dateStr.split('T')[0]; 
+    const [year, month, day] = cleanDate.split('-');
+    return `${day}/${month}/${year}`;
+};
+
+// Helper para iniciar inputs com a data local correta (YYYY-MM-DD)
+const getTodayLocal = () => {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
 
 // --- INTERFACES ---
 interface ExtractItem {
@@ -29,7 +46,10 @@ export function RegisterStatement() {
   // --- ESTADOS DO FORMULÁRIO ---
   const [editingId, setEditingId] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState('0');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  
+  // Data inicializada corretamente com local time
+  const [date, setDate] = useState(getTodayLocal());
+  
   const [value, setValue] = useState('');
   const [observations, setObservations] = useState('');
 
@@ -82,7 +102,10 @@ export function RegisterStatement() {
   const handleEdit = (item: ExtractItem) => {
     setEditingId(item.id);
     setPaymentMethod(item.paymentMethod.toString());
+    
+    // Extrai a data sem conversão de fuso
     setDate(item.date ? item.date.split('T')[0] : '');
+    
     setValue(item.value.toString());
     setObservations(item.observations || '');
     
@@ -92,20 +115,19 @@ export function RegisterStatement() {
   const handleCancelEdit = () => {
     setEditingId(null);
     setPaymentMethod('0');
-    setDate(new Date().toISOString().split('T')[0]);
+    // Reseta para hoje
+    setDate(getTodayLocal());
     setValue('');
     setObservations('');
   };
 
-  // --- DELETE (CORRIGIDO PARA MULTIPART/FORM-DATA) ---
+  // --- DELETE ---
   const handleDelete = async (id: string) => {
     if (!confirm("Deseja excluir este extrato permanentemente?")) return;
     try {
-        // Cria o FormData para enviar o ID
         const formData = new FormData();
         formData.append('Id', id);
 
-        // Envia via 'data' na configuração do axios
         await api.delete('/api/extracts', { 
             data: formData,
             headers: { 'Content-Type': 'multipart/form-data' }
@@ -153,7 +175,7 @@ export function RegisterStatement() {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
         alert("Extrato registrado com sucesso!");
-        handleCancelEdit(); // Limpa o form
+        handleCancelEdit(); 
       }
       
       fetchExtracts();
@@ -318,13 +340,25 @@ export function RegisterStatement() {
              </table>
          </div>
 
-         {/* Paginação */}
+         {/* Paginação Laranja */}
          <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
             <span className="text-sm text-slate-500">Total: <strong>{totalItems}</strong></span>
             <div className="flex items-center gap-2">
-                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1 || listLoading} className="px-3 py-1 border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50 text-sm">Anterior</button>
+                <button 
+                    onClick={() => setPage(p => Math.max(1, p - 1))} 
+                    disabled={page === 1 || listLoading} 
+                    className="p-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors shadow-sm"
+                >
+                    <ChevronLeft size={16}/>
+                </button>
                 <span className="text-sm px-2 text-slate-700 font-medium">{page} de {totalPages || 1}</span>
-                <button onClick={() => setPage(p => (totalPages && p < totalPages ? p + 1 : p))} disabled={page >= totalPages || listLoading} className="px-3 py-1 border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50 text-sm">Próximo</button>
+                <button 
+                    onClick={() => setPage(p => (totalPages && p < totalPages ? p + 1 : p))} 
+                    disabled={page >= totalPages || listLoading} 
+                    className="p-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors shadow-sm"
+                >
+                    <ChevronRight size={16}/>
+                </button>
             </div>
          </div>
       </div>

@@ -3,7 +3,7 @@ import {
   Save, Search, Banknote, ArrowUpCircle, ArrowDownCircle, 
   Loader2, Paperclip, User, Tag, X, Check, FileText, 
   Filter, AlertCircle, ChevronLeft, ChevronRight, Edit, Trash2, 
-  Image as ImageIcon, History, Clock, CheckCircle2, Eye 
+  Image as ImageIcon, History, Clock, CheckCircle2, Eye, Calendar 
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { TableAction } from '@/components/ui/TableAction';
@@ -62,14 +62,36 @@ interface HistoryItem {
   changeType: string;
 }
 
-// --- HELPER PARA IMAGENS ---
+// --- HELPERS DE DATA E FORMATAÇÃO ---
+
+// Pega a data de hoje no formato YYYY-MM-DD local (sem converter para UTC)
+const getTodayLocal = () => {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+// Formata a data para DD/MM/AAAA sem sofrer alteração de timezone
+const formatDate = (dateStr?: string) => {
+    if (!dateStr) return '-';
+    // Pega apenas a parte da data YYYY-MM-DD
+    const cleanDate = dateStr.split('T')[0]; 
+    const [year, month, day] = cleanDate.split('-');
+    return `${day}/${month}/${year}`;
+};
+
+const formatTime = (dateStr: string) => dateStr ? new Date(dateStr).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+const formatMoney = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+
+// Helper para montar URL da imagem (se vier relativa do backend)
 const getSafeImageUrl = (url: string) => {
     if (!url) return '';
     if (url.startsWith('http') || url.startsWith('blob:')) return url;
-    // Se for caminho relativo, tenta concatenar com a URL base da API
-    // Ajuste conforme a sua configuração de API, ex: 'https://api.seusite.com/'
+    // Ajuste conforme a URL base da sua API se necessário
     const baseUrl = api.defaults.baseURL || ''; 
-    // Remove barra duplicada se houver
+    // Remove barra duplicada se houver entre a base e o caminho
     return `${baseUrl.replace(/\/$/, '')}/${url.replace(/^\//, '')}`;
 };
 
@@ -237,8 +259,11 @@ export function Transactions() {
   const [formType, setFormType] = useState<number>(LaunchType.Expense);
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
-  const [launchDate, setLaunchDate] = useState(new Date().toISOString().split('T')[0]);
-  const [dueDate, setDueDate] = useState(new Date().toISOString().split('T')[0]);
+  
+  // DATAS INICIADAS CORRETAMENTE COM DATA LOCAL
+  const [launchDate, setLaunchDate] = useState(getTodayLocal());
+  const [dueDate, setDueDate] = useState(getTodayLocal());
+  
   const [formStatus, setFormStatus] = useState(PaymentStatus.Pending.toString());
   const [formPaymentMethod, setFormPaymentMethod] = useState('0');
   
@@ -268,11 +293,11 @@ export function Transactions() {
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   // Filtros do Histórico
-  const [histStartDate, setHistStartDate] = useState(new Date().toISOString().split('T')[0]); 
-  const [histEndDate, setHistEndDate] = useState(new Date().toISOString().split('T')[0]);     
+  const [histStartDate, setHistStartDate] = useState(getTodayLocal()); 
+  const [histEndDate, setHistEndDate] = useState(getTodayLocal());     
   const [histType, setHistType] = useState(''); 
 
-  // --- MODAIS (Controladas por Estado Simples) ---
+  // --- MODAIS ---
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
 
@@ -337,7 +362,7 @@ export function Transactions() {
 
   const handleHistFilter = () => fetchLaunchHistory();
   const handleHistClear = () => {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getTodayLocal();
       setHistStartDate(today);
       setHistEndDate(today);
       setHistType('');
@@ -357,14 +382,18 @@ export function Transactions() {
     }
   };
 
-  // ... (Edição e Salvar) ...
+  // --- EDITAR ---
   const handleEdit = (item: Launch) => {
     setEditingId(item.id);
     setFormType(item.type);
     setDescription(item.description);
     setAmount(item.amount.toString());
+    
+    // CORREÇÃO: Pega a data string do JSON (2025-01-01T00...) e corta apenas a data
+    // sem passar pelo construtor Date() que aplicaria fuso horário
     setLaunchDate(item.launchDate ? item.launchDate.split('T')[0] : '');
     setDueDate(item.dueDate ? item.dueDate.split('T')[0] : '');
+    
     setFormStatus(item.status.toString());
     setFormPaymentMethod(item.paymentMethod.toString());
 
@@ -390,6 +419,10 @@ export function Transactions() {
     setExistingImages([]); 
     setProofsToDelete([]);
     setFormType(LaunchType.Expense);
+    
+    // Reset Data para Hoje
+    setLaunchDate(getTodayLocal());
+    setDueDate(getTodayLocal());
   };
 
   // Handler para Input de Arquivo (Com Preview)
@@ -411,16 +444,15 @@ export function Transactions() {
     if (!description || !amount) { alert("Preencha Descrição e Valor."); return; }
     if (formType === LaunchType.Expense && !selectedCategory) { alert("Selecione a Categoria."); return; }
     
-    // NOTA: Cliente não é mais obrigatório na entrada
-    // if (formType === LaunchType.Income && !selectedCustomer) { alert("Selecione o Cliente."); return; }
-
+    // Cliente é opcional na entrada, então removemos a validação obrigatória
+    
     setLoading(true);
     try {
         const formData = new FormData();
         formData.append('Description', description);
         formData.append('Amount', amount.replace(',', '.'));
-        formData.append('LaunchDate', launchDate);
-        formData.append('DueDate', dueDate);
+        formData.append('LaunchDate', launchDate); // Envia YYYY-MM-DD
+        formData.append('DueDate', dueDate);       // Envia YYYY-MM-DD
         formData.append('Type', formType.toString());
         formData.append('PaymentMethod', formPaymentMethod);
         formData.append('Status', formStatus);
@@ -458,9 +490,6 @@ export function Transactions() {
 
   const handleFilter = () => { setPage(1); fetchLaunches(); };
   const handleClearFilters = () => { setSearch(''); setFilterStartDate(''); setFilterEndDate(''); setFilterStatus(''); setFilterType(''); setPage(1); fetchLaunches(true); };
-  const formatMoney = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
-  const formatDate = (dateStr?: string) => dateStr ? new Date(dateStr).toLocaleDateString('pt-BR') : '-';
-  const formatTime = (dateStr: string) => dateStr ? new Date(dateStr).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
   const totalPages = Math.ceil(totalItems / pageSize);
   const inputClass = "w-full px-4 py-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white text-slate-700";
 
@@ -469,7 +498,7 @@ export function Transactions() {
       
       <div className="flex justify-between items-center" ref={formTopRef}>
         <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <Banknote className="text-blue-600"/> Lançamentos Financeiros 
+            <Banknote className="text-blue-600"/> Lançamentos Financeiros
         </h1>
       </div>
       
@@ -492,7 +521,7 @@ export function Transactions() {
             <div className="md:col-span-3"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Descrição</label><input type="text" className={inputClass} value={description} onChange={e => setDescription(e.target.value)} /></div>
             <div className="md:col-span-1"><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Valor (R$)</label><input type="number" className={`${inputClass} font-bold text-lg ${formType === LaunchType.Income ? 'text-emerald-600' : 'text-red-600'}`} placeholder="0,00" value={amount} onChange={e => setAmount(e.target.value)} /></div>
             
-            {/* SELETORES */}
+            {/* SELETORES QUE ABREM MODAL */}
             {formType === LaunchType.Expense && (
                 <div className="md:col-span-4 animate-fade-in">
                     <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Categoria da Despesa</label>

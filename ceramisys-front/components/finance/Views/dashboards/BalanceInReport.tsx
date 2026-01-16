@@ -106,7 +106,6 @@ export function BalanceInReport() {
             </h1>
             <p className="text-slate-500">Análise de receitas por método de pagamento.</p>
         </div>
-        <Button variant="outline" icon={Download} onClick={handleExportPdf}>EXPORTAR PDF</Button>
       </div>
       
       {/* --- FILTROS --- */}

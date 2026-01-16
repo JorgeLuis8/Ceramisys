@@ -132,7 +132,6 @@ export function CustomerReport() {
             </h1>
             <p className="text-slate-500">Análise de compras, ticket médio e pendências por cliente.</p>
         </div>
-        <Button variant="outline" icon={Download} onClick={handleExportPdf}>EXPORTAR PDF</Button>
       </div>
       
       {/* --- FILTROS --- */}
