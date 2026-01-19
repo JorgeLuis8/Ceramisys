@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { TableAction } from '@/components/ui/TableAction';
 import { api } from '@/lib/api';
 
-// Interface atualizada para permitir que returnedQuantity seja opcional/null
+// Interface atualizada
 interface PendingExit {
   id: string;
   productName: string;
@@ -42,7 +42,8 @@ export function ProductReturns() {
         PageSize: pageSize,
         Search: isReset ? '' : searchTerm,
         OrderBy: 'ExitDate',
-        Ascending: true
+        // MUDANÇA IMPORTANTE: false para trazer os mais recentes primeiro (maior chance de estarem pendentes)
+        Ascending: false 
       };
 
       const response = await api.get('/api/products-exit/paged', { params });
@@ -52,19 +53,17 @@ export function ProductReturns() {
       if (data.items) fetchedItems = data.items;
       else if (Array.isArray(data)) fetchedItems = data;
 
-      // --- CORREÇÃO PRINCIPAL AQUI ---
-      // 1. Garante que returnedQuantity seja tratado como 0 se vier null/undefined
-      // 2. Filtra apenas o que é devolvível E que ainda tem saldo pendente
+      // Filtra apenas o que é devolvível E que ainda tem saldo pendente
       const pendingOnly = fetchedItems.filter(item => {
-        const returned = item.returnedQuantity ?? 0; // Se null/undefined, usa 0
+        const returned = item.returnedQuantity ?? 0;
         return item.isReturnable === true && returned < item.quantity;
       });
 
       setItems(pendingOnly);
       
-      // Nota: Se a filtragem for no front-end, o totalItems da API pode estar incorreto para a paginação visual
-      // Mas mantemos a lógica para tentar respeitar a paginação do banco se possível
-      // Se a API suportar filtro de 'PendingOnly', seria o ideal passar no params.
+      // Se não houver itens na página atual filtrada, mas o totalItems do banco for maior que 0,
+      // pode ser um indicativo de paginação vazia visualmente. 
+      // O ideal seria a API filtrar "PendingOnly", mas isso ajuda a manter a contagem correta.
       setTotalItems(data.totalItems ?? pendingOnly.length); 
 
     } catch (error) {
@@ -90,7 +89,6 @@ export function ProductReturns() {
 
   const handleOpenModal = (item: PendingExit) => {
     setSelectedItem(item);
-    // Calcula o restante corretamente tratando null
     const returned = item.returnedQuantity ?? 0;
     setQuantityToReturn(item.quantity - returned); 
     setIsModalOpen(true);
@@ -207,10 +205,9 @@ export function ProductReturns() {
                     {tableLoading ? (
                         <tr><td colSpan={5} className="p-8 text-center"><div className="flex justify-center gap-2"><Loader2 className="animate-spin"/> Carregando...</div></td></tr>
                     ) : items.length === 0 ? (
-                        <tr><td colSpan={5} className="p-8 text-center text-slate-500">Nenhum item pendente encontrado.</td></tr>
+                        <tr><td colSpan={5} className="p-8 text-center text-slate-500">Nenhum item pendente encontrado nesta página.</td></tr>
                     ) : (
                         items.map((item) => {
-                            // Cálculo seguro com fallback para 0
                             const returned = item.returnedQuantity ?? 0;
                             const remaining = item.quantity - returned;
                             
@@ -252,12 +249,26 @@ export function ProductReturns() {
             </table>
         </div>
 
+        {/* PAGINAÇÃO LARANJA */}
         <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
             <span className="text-sm text-slate-500">Total: <strong>{totalItems}</strong> registros</span>
             <div className="flex items-center gap-2">
-                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1 || tableLoading} className="p-2 border border-slate-300 rounded-lg hover:bg-white disabled:opacity-50 bg-white"><ChevronLeft size={16} /></button>
+                <button 
+                    onClick={() => setPage(p => Math.max(1, p - 1))} 
+                    disabled={page === 1 || tableLoading} 
+                    className="p-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors shadow-sm"
+                >
+                    <ChevronLeft size={16} />
+                </button>
                 <span className="text-sm font-medium text-slate-700 px-2">{page}</span>
-                <button onClick={() => setPage(p => p + 1)} disabled={items.length < pageSize || tableLoading} className="p-2 border border-slate-300 rounded-lg hover:bg-white disabled:opacity-50 bg-white"><ChevronRight size={16} /></button>
+                <button 
+                    onClick={() => setPage(p => p + 1)} 
+                    // Logica de disable ajustada: Se tiver menos que pageSize, provavelmente é a ultima
+                    disabled={items.length < pageSize || tableLoading} 
+                    className="p-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors shadow-sm"
+                >
+                    <ChevronRight size={16} />
+                </button>
             </div>
         </div>
       </div>
