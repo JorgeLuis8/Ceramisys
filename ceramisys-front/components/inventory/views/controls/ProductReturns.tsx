@@ -22,7 +22,11 @@ export function ProductReturns() {
   
   const [page, setPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const pageSize = 10;
+  
+  // ALTERAÇÃO CRÍTICA: Aumentado de 10 para 100.
+  // Isso garante que puxamos um lote maior para encontrar pendências misturadas com itens concluídos.
+  const pageSize = 100; 
+  
   const [searchTerm, setSearchTerm] = useState('');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -42,8 +46,7 @@ export function ProductReturns() {
         PageSize: pageSize,
         Search: isReset ? '' : searchTerm,
         OrderBy: 'ExitDate',
-        // MUDANÇA IMPORTANTE: false para trazer os mais recentes primeiro (maior chance de estarem pendentes)
-        Ascending: false 
+        Ascending: false // Traz os mais recentes primeiro
       };
 
       const response = await api.get('/api/products-exit/paged', { params });
@@ -53,7 +56,7 @@ export function ProductReturns() {
       if (data.items) fetchedItems = data.items;
       else if (Array.isArray(data)) fetchedItems = data;
 
-      // Filtra apenas o que é devolvível E que ainda tem saldo pendente
+      // Filtro no Front-end: Remove o que já foi devolvido
       const pendingOnly = fetchedItems.filter(item => {
         const returned = item.returnedQuantity ?? 0;
         return item.isReturnable === true && returned < item.quantity;
@@ -61,9 +64,7 @@ export function ProductReturns() {
 
       setItems(pendingOnly);
       
-      // Se não houver itens na página atual filtrada, mas o totalItems do banco for maior que 0,
-      // pode ser um indicativo de paginação vazia visualmente. 
-      // O ideal seria a API filtrar "PendingOnly", mas isso ajuda a manter a contagem correta.
+      // Ajuste visual do total para a paginação não ficar estranha
       setTotalItems(data.totalItems ?? pendingOnly.length); 
 
     } catch (error) {
@@ -205,7 +206,7 @@ export function ProductReturns() {
                     {tableLoading ? (
                         <tr><td colSpan={5} className="p-8 text-center"><div className="flex justify-center gap-2"><Loader2 className="animate-spin"/> Carregando...</div></td></tr>
                     ) : items.length === 0 ? (
-                        <tr><td colSpan={5} className="p-8 text-center text-slate-500">Nenhum item pendente encontrado nesta página.</td></tr>
+                        <tr><td colSpan={5} className="p-8 text-center text-slate-500">Nenhum item pendente encontrado nesta página (Tente navegar ou buscar).</td></tr>
                     ) : (
                         items.map((item) => {
                             const returned = item.returnedQuantity ?? 0;
@@ -263,7 +264,7 @@ export function ProductReturns() {
                 <span className="text-sm font-medium text-slate-700 px-2">{page}</span>
                 <button 
                     onClick={() => setPage(p => p + 1)} 
-                    // Logica de disable ajustada: Se tiver menos que pageSize, provavelmente é a ultima
+                    // Logica de disable: Se vier menos que o pageSize, é a última
                     disabled={items.length < pageSize || tableLoading} 
                     className="p-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors shadow-sm"
                 >
