@@ -111,7 +111,6 @@ export function NewSale() {
   const [customerAddress, setCustomerAddress] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   
-  // ALTERAÇÃO 1 e 2: Valores iniciais vazios
   const [city, setCity] = useState(''); 
   const [state, setState] = useState(''); 
 
@@ -127,7 +126,6 @@ export function NewSale() {
   const [selectedProductId, setSelectedProductId] = useState<string>(''); 
   const [itemQuantity, setItemQuantity] = useState(1);
   
-  // ALTERAÇÃO 3: Strings vazias para remover o zero visual
   const [itemPrice, setItemPrice] = useState(''); 
   const [itemBreak, setItemBreak] = useState(''); 
 
@@ -243,7 +241,6 @@ export function NewSale() {
     setCustomerAddress(sale.customerAddress || '');
     setCustomerPhone(sale.customerPhone || '');
     
-    // Setar vazio se vier nulo/undefined
     setCity(sale.city || '');
     setState(sale.state || '');
     
@@ -281,7 +278,7 @@ export function NewSale() {
   const handleCancelEdit = () => {
     setEditingId(null);
     setCustomerName(''); setCustomerAddress(''); setCustomerPhone(''); setCart([]); setDiscount(0);
-    setCity(''); setState(''); // Resetar para vazio
+    setCity(''); setState('');
     setCurrentPaymentId(undefined); setPaymentMethod('0'); setSaleStatus('0'); setAmountPaid(0);
   };
 
@@ -290,7 +287,6 @@ export function NewSale() {
     setSelectedProductId(prodId);
     const prod = PRODUCT_CATALOG.find(p => p.id === Number(prodId));
     if (prod) {
-        // Converter para string
         setItemPrice(prod.defaultPrice.toString());
     } else {
         setItemPrice('');
@@ -303,7 +299,6 @@ export function NewSale() {
     const prodIdInt = Number(selectedProductId);
     const prodName = ProductDescriptions[prodIdInt];
     
-    // Converter de string para número para os cálculos
     const priceNumeric = itemPrice === '' ? 0 : parseFloat(itemPrice);
     const breakNumeric = itemBreak === '' ? 0 : parseInt(itemBreak);
 
@@ -317,7 +312,6 @@ export function NewSale() {
     };
     setCart([...cart, newItem]);
     
-    // Resetar campos para vazio
     setSelectedProductId(''); setItemQuantity(1); setItemPrice(''); setItemBreak('');
   };
 
@@ -408,12 +402,10 @@ export function NewSale() {
                         <div><label className="block text-sm font-semibold text-slate-700 mb-1">Telefone</label><input type="text" className={inputClass} value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} /></div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* ALTERAÇÃO NA CIDADE: sem valor default */}
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-1">Cidade</label>
                             <input type="text" className={inputClass} value={city} onChange={e => setCity(e.target.value)} placeholder="Ex: Picos" />
                         </div>
-                        {/* ALTERAÇÃO NO ESTADO: Max 2 letras e UpperCase */}
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-1">Estado</label>
                             <input 
@@ -443,7 +435,6 @@ export function NewSale() {
                         </div>
                         <div className="md:col-span-1"><label className="block text-sm font-semibold text-slate-700 mb-1">Qtd.</label><input type="number" className={inputClass} value={itemQuantity} onChange={e => setItemQuantity(Number(e.target.value))} min="1" /></div>
                         
-                        {/* ALTERAÇÃO PREÇO: Input tipo number mas controlado por string para permitir vazio */}
                         <div className="md:col-span-1">
                             <label className="block text-sm font-semibold text-slate-700 mb-1">Preço (R$)</label>
                             <input 
@@ -455,7 +446,6 @@ export function NewSale() {
                             />
                         </div>
 
-                        {/* ALTERAÇÃO QUEBRA: Input tipo number mas controlado por string */}
                         <div className="md:col-span-1">
                             <label className="block text-sm font-semibold text-slate-700 mb-1">Quebra</label>
                             <input 
@@ -497,7 +487,16 @@ export function NewSale() {
                 <div className="p-6 space-y-6">
                     <div className="space-y-3 text-sm">
                         <div className="flex justify-between text-slate-500"><span>Subtotal</span><span>R$ {subtotalCarrinho.toFixed(2)}</span></div>
-                        <div className="flex justify-between items-center text-slate-500"><span>Desconto (R$)</span><input type="number" className="w-24 px-2 py-1 text-right border border-slate-300 rounded outline-none focus:border-orange-500" value={discount} onChange={e => setDiscount(Number(e.target.value))} /></div>
+                        <div className="flex justify-between items-center text-slate-500">
+                            <span>Desconto (R$)</span>
+                            <input 
+                                type="number" 
+                                className="w-24 px-2 py-1 text-right border border-slate-300 rounded outline-none focus:border-orange-500" 
+                                value={discount === 0 ? '' : discount} 
+                                onChange={e => setDiscount(Number(e.target.value))} 
+                                placeholder="0.00"
+                            />
+                        </div>
                         <div className="flex justify-between font-bold text-xl text-slate-800 pt-4 border-t border-slate-100"><span>Total</span><span>R$ {totalCarrinho.toFixed(2)}</span></div>
                     </div>
                     <div className="space-y-4 pt-2">
@@ -518,9 +517,10 @@ export function NewSale() {
                             <input 
                                 type="number" 
                                 className={`w-full px-4 py-2.5 border rounded-lg outline-none text-right font-bold ${Number(saleStatus) === SaleStatusEnum.PartiallyPaid ? 'border-orange-400 bg-white text-orange-600 ring-2 ring-orange-100' : 'border-slate-300 bg-slate-100 text-slate-500 cursor-not-allowed'}`}
-                                value={amountPaid}
-                                onChange={e => setAmountPaid(Number(e.target.value))}
+                                value={amountPaid === 0 ? '' : amountPaid} 
+                                onChange={e => setAmountPaid(Number(e.target.value))} 
                                 disabled={Number(saleStatus) !== SaleStatusEnum.PartiallyPaid} 
+                                placeholder="0.00"
                             />
                             {remainingBalance > 0 && (<p className="text-xs text-red-500 text-right mt-1 font-bold">Restante: {formatMoney(remainingBalance)}</p>)}
                         </div>
@@ -592,11 +592,11 @@ export function NewSale() {
                                 </tr>
                                 {expandedRow === sale.id && (
                                     <tr className="bg-slate-50/50"><td colSpan={9} className="p-4">
-                                        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm p-4">
-                                            <h4 className="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wider">Itens da Venda</h4>
-                                            <table className="w-full text-sm text-left mb-4"><thead className="bg-slate-100 text-xs font-bold text-slate-500 uppercase"><tr><th className="p-3">Produto</th><th className="p-3 text-center">Qtd</th><th className="p-3 text-center">Unit.</th><th className="p-3 text-right">Subtotal</th></tr></thead><tbody>{sale.items.map((item, idx) => (<tr key={idx} className="border-b border-slate-50"><td className="p-3 font-medium">{getProductNameFromEnumString(item.product)}</td><td className="p-3 text-center">{item.quantity}</td><td className="p-3 text-center">{formatMoney(item.unitPrice)}</td><td className="p-3 text-right font-bold">{formatMoney(item.subtotal)}</td></tr>))}</tbody></table>
-                                            <h4 className="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wider mt-4">Pagamentos</h4>{sale.payments && sale.payments.length > 0 ? (<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">{sale.payments.map((pay, idx) => (<div key={idx} className="flex justify-between items-center p-3 bg-emerald-50 rounded border border-emerald-100"><span className="text-xs font-bold text-emerald-800">{PaymentMethodDescriptions[pay.paymentMethod]}</span><span className="text-sm font-bold text-emerald-700">{formatMoney(pay.amount)}</span></div>))}</div>) : (<p className="text-sm text-slate-400 italic">Nenhum pagamento registrado.</p>)}
-                                        </div>
+                                            <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm p-4">
+                                                <h4 className="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wider">Itens da Venda</h4>
+                                                <table className="w-full text-sm text-left mb-4"><thead className="bg-slate-100 text-xs font-bold text-slate-500 uppercase"><tr><th className="p-3">Produto</th><th className="p-3 text-center">Qtd</th><th className="p-3 text-center">Unit.</th><th className="p-3 text-right">Subtotal</th></tr></thead><tbody>{sale.items.map((item, idx) => (<tr key={idx} className="border-b border-slate-50"><td className="p-3 font-medium">{getProductNameFromEnumString(item.product)}</td><td className="p-3 text-center">{item.quantity}</td><td className="p-3 text-center">{formatMoney(item.unitPrice)}</td><td className="p-3 text-right font-bold">{formatMoney(item.subtotal)}</td></tr>))}</tbody></table>
+                                                <h4 className="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wider mt-4">Pagamentos</h4>{sale.payments && sale.payments.length > 0 ? (<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">{sale.payments.map((pay, idx) => (<div key={idx} className="flex justify-between items-center p-3 bg-emerald-50 rounded border border-emerald-100"><span className="text-xs font-bold text-emerald-800">{PaymentMethodDescriptions[pay.paymentMethod]}</span><span className="text-sm font-bold text-emerald-700">{formatMoney(pay.amount)}</span></div>))}</div>) : (<p className="text-sm text-slate-400 italic">Nenhum pagamento registrado.</p>)}
+                                            </div>
                                     </td></tr>
                                 )}
                             </React.Fragment>
