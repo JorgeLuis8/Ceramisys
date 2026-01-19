@@ -12,14 +12,16 @@ import { Sidebar } from '@/components/Sidebar';
 import { InventoryLayout } from '@/components/inventory/InventoryLayout';
 import { SalesLayout } from '@/components/sales/SalesLayout';
 import { FinanceLayout } from '@/components/finance/FinanceLayout'; 
+// IMPORTAÇÃO DO MÓDULO ADMIN COMPLETO
+import { AdminLayout } from '@/components/admin/AdminLayout'; 
 
 // ==================================================================
 // TIPAGEM DO TOKEN
 // ==================================================================
 interface CustomJwtPayload {
-  unique_name: string; // Ex: "Admin"
-  role: string;        // Ex: "Admin"
-  email: string;       // Ex: "admin@gmail.com"
+  unique_name: string; 
+  role: string;        
+  email: string;       
   nameid?: string;
   nbf?: number;
   exp?: number;
@@ -29,7 +31,7 @@ interface CustomJwtPayload {
 }
 
 // ==================================================================
-// 1. COMPONENTE DE VISÃO GERAL (DASHBOARD HOME) - VISUAL APENAS
+// 1. COMPONENTE DE VISÃO GERAL (DASHBOARD HOME)
 // ==================================================================
 
 const OverviewLayout = () => {
@@ -103,7 +105,7 @@ const OverviewLayout = () => {
         </div>
       </div>
 
-      {/* CARDS DOS MÓDULOS (SEM CLIQUE, COM ANIMAÇÃO VISUAL) */}
+      {/* CARDS DOS MÓDULOS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
         {modules.map((mod) => {
           const colors = colorMap[mod.color as keyof typeof colorMap];
@@ -113,18 +115,15 @@ const OverviewLayout = () => {
                 className={`
                   flex flex-col bg-white rounded-3xl border-2 ${colors.border} shadow-sm p-6 md:p-8 
                   relative overflow-hidden cursor-default group
-                  /* ANIMAÇÕES AQUI: */
                   transition-all duration-300 ease-out
                   hover:shadow-2xl hover:-translate-y-2 hover:scale-[1.02] ${colors.hoverBorder}
                 `} 
             >
-              {/* Imagem de Fundo Rotacionada */}
               <div className="absolute -top-6 -right-6 w-32 h-32 opacity-5 transition-all duration-500 pointer-events-none rotate-12 group-hover:rotate-45 group-hover:opacity-10 group-hover:scale-110">
                 <Image src={mod.imageSrc} alt="" fill className="object-contain" />
               </div>
 
               <div className="relative z-10 flex flex-col h-full">
-                {/* Ícone com animação de pulso/escala */}
                 <div className={`w-14 h-14 md:w-16 md:h-16 ${colors.iconBg} rounded-2xl flex items-center justify-center mb-6 shadow-sm relative shrink-0 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3`}>
                   <div className="w-8 h-8 md:w-10 md:h-10 relative">
                     <Image src={mod.imageSrc} alt={mod.title} fill className="object-contain" />
@@ -134,7 +133,6 @@ const OverviewLayout = () => {
                 <h3 className="text-2xl font-bold text-gray-900 mb-2 group-hover:text-orange-600 transition-colors">{mod.title}</h3>
                 <p className="text-gray-500 text-sm mb-6 min-h-[40px] md:min-h-[60px] leading-relaxed">{mod.longDescription}</p>
                 
-                {/* Botão Visual (Estático mas bonito) */}
                 <div className={`w-full py-3 rounded-xl text-sm font-bold border-2 transition-colors mt-auto text-center select-none ${mod.color === 'orange' ? 'border-orange-100 bg-orange-50 text-orange-700' : 'border-gray-100 bg-gray-50 text-gray-600 group-hover:bg-gray-100'}`}>
                   Módulo Disponível
                 </div>
@@ -238,17 +236,31 @@ export default function DashboardPage() {
     );
   }
 
-  // --- ROTEAMENTO DOS MÓDULOS ---
+  // --- ROTEAMENTO DOS MÓDULOS DE TELA CHEIA ---
+  // Estes retornam um layout próprio, substituindo a sidebar principal
   if (activeModule === 'inventory') return <InventoryLayout onBackToMain={() => setActiveModule('overview')} />;
   if (activeModule === 'sales') return <SalesLayout onBackToMain={() => setActiveModule('overview')} />;
   if (activeModule === 'finance') return <FinanceLayout onBackToMain={() => setActiveModule('overview')} />;
+  
+  // --- MÓDULO ADMINISTRATIVO ---
+  // Se for admin, carrega o layout administrativo completo
+  if (activeModule === 'admin' && userRole === 'Admin') {
+      // @ts-ignore: Ignorando erro de tipagem até que AdminLayoutProps seja atualizado no componente filho
+      return <AdminLayout onBackToMain={() => setActiveModule('overview')} />;
+  }
 
-  const getHeaderTitle = () => activeModule === 'overview' ? 'Visão Geral' : 'CeramiSys';
+  // Função para título dinâmico
+  const getHeaderTitle = () => {
+      switch(activeModule) {
+          case 'overview': return 'Visão Geral';
+          default: return 'CeramiSys';
+      }
+  };
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] flex font-sans overflow-hidden">
       
-      {/* SIDEBAR */}
+      {/* SIDEBAR PADRÃO (Para visão geral) */}
       <Sidebar 
         activeSection={activeModule} 
         onChangeSection={setActiveModule} 
@@ -287,9 +299,9 @@ export default function DashboardPage() {
            </div>
         </header>
 
-        {/* CONTEÚDO PRINCIPAL */}
+        {/* CONTEÚDO PRINCIPAL (DASHBOARD GERAL) */}
         <div className="flex-1 p-4 md:p-8 overflow-y-auto bg-[#f8f9fa] custom-scrollbar pb-20">
-           <OverviewLayout />
+           {activeModule === 'overview' && <OverviewLayout />}
         </div>
 
       </main>
