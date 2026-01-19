@@ -90,7 +90,7 @@ const OverviewLayout = () => {
              <Image src="/icons/logo.png" alt="Logo CeramiSys" fill className="object-contain drop-shadow-xl" priority />
           </div>
           <h1 className="text-4xl md:text-6xl font-black tracking-tight text-gray-900 mb-4">
-            Cerami<span className="text-orange-600">Sys</span>
+            Cerâmica<span className="text-orange-600">Canelas</span>
           </h1>
           <p className="text-lg md:text-xl text-gray-500 max-w-2xl font-medium leading-relaxed px-4">
             Sistema Inteligente para Gestão de Indústrias Cerâmicas
