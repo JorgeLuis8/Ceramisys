@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Filter, X, Undo2, Package, CheckCircle2, Search, User, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Filter, X, Undo2, Package, CheckCircle2, Search, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { TableAction } from '@/components/ui/TableAction';
 import { api } from '@/lib/api';
 
-// Interface atualizada com returnedQuantity
+// Interface atualizada para permitir que returnedQuantity seja opcional/null
 interface PendingExit {
   id: string;
   productName: string;
   employeeName: string;
   quantity: number;
-  returnedQuantity: number;
+  returnedQuantity?: number; // Pode vir nulo
   exitDate: string;
   isReturnable: boolean;
 }
@@ -52,13 +52,20 @@ export function ProductReturns() {
       if (data.items) fetchedItems = data.items;
       else if (Array.isArray(data)) fetchedItems = data;
 
-      const pendingOnly = fetchedItems.filter(item => 
-        item.isReturnable === true && 
-        item.returnedQuantity < item.quantity
-      );
+      // --- CORREÇÃO PRINCIPAL AQUI ---
+      // 1. Garante que returnedQuantity seja tratado como 0 se vier null/undefined
+      // 2. Filtra apenas o que é devolvível E que ainda tem saldo pendente
+      const pendingOnly = fetchedItems.filter(item => {
+        const returned = item.returnedQuantity ?? 0; // Se null/undefined, usa 0
+        return item.isReturnable === true && returned < item.quantity;
+      });
 
       setItems(pendingOnly);
-      setTotalItems(pendingOnly.length); 
+      
+      // Nota: Se a filtragem for no front-end, o totalItems da API pode estar incorreto para a paginação visual
+      // Mas mantemos a lógica para tentar respeitar a paginação do banco se possível
+      // Se a API suportar filtro de 'PendingOnly', seria o ideal passar no params.
+      setTotalItems(data.totalItems ?? pendingOnly.length); 
 
     } catch (error) {
       console.error("Erro ao buscar pendências", error);
@@ -83,7 +90,9 @@ export function ProductReturns() {
 
   const handleOpenModal = (item: PendingExit) => {
     setSelectedItem(item);
-    setQuantityToReturn(item.quantity - item.returnedQuantity); 
+    // Calcula o restante corretamente tratando null
+    const returned = item.returnedQuantity ?? 0;
+    setQuantityToReturn(item.quantity - returned); 
     setIsModalOpen(true);
   };
 
@@ -95,7 +104,9 @@ export function ProductReturns() {
 
   const handleConfirmReturn = async () => {
     if (!selectedItem) return;
-    const remaining = selectedItem.quantity - selectedItem.returnedQuantity;
+    
+    const returned = selectedItem.returnedQuantity ?? 0;
+    const remaining = selectedItem.quantity - returned;
 
     if (quantityToReturn <= 0 || quantityToReturn > remaining) {
       alert(`Quantidade inválida. O máximo permitido é ${remaining}.`);
@@ -127,9 +138,11 @@ export function ProductReturns() {
   const handleFilter = () => { setPage(1); fetchPendingItems(); };
   const handleClear = () => { setSearchTerm(''); setPage(1); fetchPendingItems(true); };
 
-  const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('pt-BR');
+  const formatDate = (dateStr: string) => {
+      if (!dateStr) return '-';
+      return new Date(dateStr).toLocaleDateString('pt-BR');
+  };
   
-  // 1. CORREÇÃO DA COR DO TEXTO AQUI (text-slate-900)
   const inputClass = "w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-900 placeholder:text-slate-400";
 
   return (
@@ -175,7 +188,7 @@ export function ProductReturns() {
         <div className="p-6 border-b border-slate-200 flex justify-between items-center">
             <h2 className="text-lg font-bold text-slate-800">Itens Pendentes</h2>
             <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold">
-                {items.length} Pendente(s)
+                {items.length} Visíveis
             </span>
         </div>
         
@@ -197,7 +210,10 @@ export function ProductReturns() {
                         <tr><td colSpan={5} className="p-8 text-center text-slate-500">Nenhum item pendente encontrado.</td></tr>
                     ) : (
                         items.map((item) => {
-                            const remaining = item.quantity - item.returnedQuantity;
+                            // Cálculo seguro com fallback para 0
+                            const returned = item.returnedQuantity ?? 0;
+                            const remaining = item.quantity - returned;
+                            
                             return (
                                 <tr key={item.id} className="hover:bg-slate-50 border-b border-slate-100 last:border-0">
                                     <td className="p-4 font-bold text-slate-800 flex items-center gap-2">
@@ -217,7 +233,7 @@ export function ProductReturns() {
                                             <Button 
                                                 variant="primary" 
                                                 size="sm" 
-                                                icon={CheckCircle2}
+                                                icon={CheckCircle2} 
                                                 onClick={() => handleOpenModal(item)}
                                             >
                                                 DEVOLVER
@@ -237,11 +253,11 @@ export function ProductReturns() {
         </div>
 
         <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
-            <span className="text-sm text-slate-500">Mostrando registros</span>
+            <span className="text-sm text-slate-500">Total: <strong>{totalItems}</strong> registros</span>
             <div className="flex items-center gap-2">
-                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1 || tableLoading} className="p-2 border border-slate-300 rounded-lg hover:bg-white disabled:opacity-50"><ChevronLeft size={16} /></button>
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1 || tableLoading} className="p-2 border border-slate-300 rounded-lg hover:bg-white disabled:opacity-50 bg-white"><ChevronLeft size={16} /></button>
                 <span className="text-sm font-medium text-slate-700 px-2">{page}</span>
-                <button onClick={() => setPage(p => p + 1)} disabled={items.length < pageSize || tableLoading} className="p-2 border border-slate-300 rounded-lg hover:bg-white disabled:opacity-50"><ChevronRight size={16} /></button>
+                <button onClick={() => setPage(p => p + 1)} disabled={items.length < pageSize || tableLoading} className="p-2 border border-slate-300 rounded-lg hover:bg-white disabled:opacity-50 bg-white"><ChevronRight size={16} /></button>
             </div>
         </div>
       </div>
@@ -262,17 +278,16 @@ export function ProductReturns() {
                     
                     <div>
                         <label className="block text-sm font-bold text-slate-700 mb-2">Quantidade a Devolver</label>
-                        {/* 2. CORREÇÃO DA COR DO TEXTO AQUI TAMBÉM (text-slate-900) */}
                         <input 
                             type="number" 
                             className="w-full px-4 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-lg font-bold text-center text-slate-900"
                             value={quantityToReturn}
                             onChange={e => setQuantityToReturn(Number(e.target.value))}
                             min="1"
-                            max={selectedItem.quantity - selectedItem.returnedQuantity}
+                            max={selectedItem.quantity - (selectedItem.returnedQuantity ?? 0)}
                         />
                         <p className="text-xs text-slate-500 mt-1 text-center">
-                            Máximo Pendente: <strong>{selectedItem.quantity - selectedItem.returnedQuantity}</strong>
+                            Máximo Pendente: <strong>{selectedItem.quantity - (selectedItem.returnedQuantity ?? 0)}</strong>
                         </p>
                     </div>
                 </div>
