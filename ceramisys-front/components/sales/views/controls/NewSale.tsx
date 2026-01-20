@@ -124,7 +124,9 @@ export function NewSale() {
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedProductId, setSelectedProductId] = useState<string>(''); 
-  const [itemQuantity, setItemQuantity] = useState(1);
+  
+  // ALTERADO: itemQuantity agora aceita string ou number para permitir limpar o campo
+  const [itemQuantity, setItemQuantity] = useState<number | string>(1);
   
   const [itemPrice, setItemPrice] = useState(''); 
   const [itemBreak, setItemBreak] = useState(''); 
@@ -294,7 +296,10 @@ export function NewSale() {
   };
 
   const handleAddItem = () => {
-    if (selectedProductId === '' || itemQuantity <= 0) { alert("Selecione produto e qtd."); return; }
+    // ALTERADO: Converte para número aqui
+    const quantityNumber = Number(itemQuantity);
+
+    if (selectedProductId === '' || quantityNumber <= 0) { alert("Selecione produto e qtd válida."); return; }
     
     const prodIdInt = Number(selectedProductId);
     const prodName = ProductDescriptions[prodIdInt];
@@ -305,10 +310,10 @@ export function NewSale() {
     const newItem: CartItem = {
       productId: prodIdInt, 
       productName: prodName, 
-      quantity: itemQuantity, 
+      quantity: quantityNumber, 
       unitPrice: priceNumeric, 
       break: breakNumeric, 
-      subtotal: (itemQuantity * priceNumeric) 
+      subtotal: (quantityNumber * priceNumeric) 
     };
     setCart([...cart, newItem]);
     
@@ -433,7 +438,18 @@ export function NewSale() {
                                 {PRODUCT_CATALOG.map(p => (<option key={p.id} value={p.id}>{p.name}</option>))}
                             </select>
                         </div>
-                        <div className="md:col-span-1"><label className="block text-sm font-semibold text-slate-700 mb-1">Qtd.</label><input type="number" className={inputClass} value={itemQuantity} onChange={e => setItemQuantity(Number(e.target.value))} min="1" /></div>
+                        
+                        {/* ALTERADO: Input da quantidade sem forçar Number() no onChange */}
+                        <div className="md:col-span-1">
+                            <label className="block text-sm font-semibold text-slate-700 mb-1">Qtd.</label>
+                            <input 
+                                type="number" 
+                                className={inputClass} 
+                                value={itemQuantity} 
+                                onChange={e => setItemQuantity(e.target.value)} 
+                                min="1" 
+                            />
+                        </div>
                         
                         <div className="md:col-span-1">
                             <label className="block text-sm font-semibold text-slate-700 mb-1">Preço (R$)</label>

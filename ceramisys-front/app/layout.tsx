@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CeramiSys", // Aproveitei para atualizar o título do seu App
+  title: "Ceramica Canelas", // Aproveitei para atualizar o título do seu App
   description: "Sistema de Gestão para Cerâmicas",
 };
 
