@@ -9,7 +9,23 @@ const PaymentMethodDescriptions: Record<number, string> = {
 };
 
 const formatMoney = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
-const formatDate = (dateStr: string) => dateStr ? new Date(dateStr).toLocaleDateString('pt-BR') : '-';
+
+// CORREÇÃO 1: Formata data ignorando fuso horário (apenas string)
+const formatDate = (dateStr?: string) => {
+    if (!dateStr) return '-';
+    const cleanDate = dateStr.split('T')[0]; 
+    const [year, month, day] = cleanDate.split('-');
+    return `${day}/${month}/${year}`;
+};
+
+// CORREÇÃO 2: Pega data de hoje localmente (YYYY-MM-DD)
+const getTodayLocal = () => {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
 
 // --- INTERFACES ---
 interface PendingSale {
@@ -43,7 +59,9 @@ export function PendingSales() {
   const [selectedSale, setSelectedSale] = useState<PendingSale | null>(null);
   const [amountToPay, setAmountToPay] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState('0');
-  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+  
+  // CORREÇÃO 3: Inicializa com a data local correta
+  const [paymentDate, setPaymentDate] = useState(getTodayLocal());
 
   // --- EFEITOS ---
   useEffect(() => {
@@ -85,6 +103,8 @@ export function PendingSales() {
     setSelectedSale(sale);
     setAmountToPay(sale.remainingBalance); // Sugere pagar o restante
     setPaymentMethod('0');
+    // Garante que ao abrir o modal a data seja hoje
+    setPaymentDate(getTodayLocal());
     setIsModalOpen(true);
   };
 
