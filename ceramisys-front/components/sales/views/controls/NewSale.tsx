@@ -7,6 +7,26 @@ import { Button } from '@/components/ui/Button';
 import { TableAction } from '@/components/ui/TableAction';
 import { api } from '@/lib/api';
 
+// --- HELPERS DE DATA ---
+// Garante data local YYYY-MM-DD
+const getTodayLocal = () => {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+// Formata para exibição sem alterar fuso
+const formatDate = (dateStr?: string) => {
+    if (!dateStr) return '-';
+    const cleanDate = dateStr.split('T')[0]; 
+    const [year, month, day] = cleanDate.split('-');
+    return `${day}/${month}/${year}`;
+};
+
+const formatMoney = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+
 // --- 1. ENUMS E MAPEAMENTOS ---
 
 const ProductType = {
@@ -114,7 +134,9 @@ export function NewSale() {
   const [city, setCity] = useState(''); 
   const [state, setState] = useState(''); 
 
-  const [saleDate, setSaleDate] = useState(new Date().toISOString().split('T')[0]); 
+  // DATA INICIAL CORRIGIDA
+  const [saleDate, setSaleDate] = useState(getTodayLocal()); 
+  
   const [discount, setDiscount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<string>(PaymentMethod.Dinheiro.toString()); 
   const [currentPaymentId, setCurrentPaymentId] = useState<string | undefined>(undefined); 
@@ -124,8 +146,6 @@ export function NewSale() {
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedProductId, setSelectedProductId] = useState<string>(''); 
-  
-  // ALTERADO: itemQuantity agora aceita string ou number para permitir limpar o campo
   const [itemQuantity, setItemQuantity] = useState<number | string>(1);
   
   const [itemPrice, setItemPrice] = useState(''); 
@@ -199,7 +219,7 @@ export function NewSale() {
         const link = document.createElement('a');
         const href = url;
         link.href = href;
-        link.setAttribute('download', `relatorio_geral_${new Date().toISOString().split('T')[0]}.pdf`);
+        link.setAttribute('download', `relatorio_geral_${getTodayLocal()}.pdf`);
         document.body.appendChild(link);
         link.click();
         link.remove();
@@ -246,7 +266,9 @@ export function NewSale() {
     setCity(sale.city || '');
     setState(sale.state || '');
     
-    setSaleDate(sale.saleDate ? sale.saleDate.split('T')[0] : new Date().toISOString().split('T')[0]);
+    // CORREÇÃO DATA EDIÇÃO
+    setSaleDate(sale.saleDate ? sale.saleDate.split('T')[0] : getTodayLocal());
+    
     setDiscount(sale.discount || 0);
     setSaleStatus(sale.status.toString());
 
@@ -282,6 +304,7 @@ export function NewSale() {
     setCustomerName(''); setCustomerAddress(''); setCustomerPhone(''); setCart([]); setDiscount(0);
     setCity(''); setState('');
     setCurrentPaymentId(undefined); setPaymentMethod('0'); setSaleStatus('0'); setAmountPaid(0);
+    setSaleDate(getTodayLocal()); // Reset para hoje
   };
 
   const handleProductSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -296,7 +319,6 @@ export function NewSale() {
   };
 
   const handleAddItem = () => {
-    // ALTERADO: Converte para número aqui
     const quantityNumber = Number(itemQuantity);
 
     if (selectedProductId === '' || quantityNumber <= 0) { alert("Selecione produto e qtd válida."); return; }
@@ -361,6 +383,7 @@ export function NewSale() {
           alert("Registrado com sucesso!");
           setCustomerName(''); setCustomerAddress(''); setCustomerPhone(''); setCart([]); setDiscount(0); setSaleStatus('0'); setAmountPaid(0);
           setCity(''); setState('');
+          setSaleDate(getTodayLocal());
       }
       fetchSales(); 
     } catch (error) { console.error("Erro save", error); alert("Erro ao salvar."); } 
@@ -370,8 +393,6 @@ export function NewSale() {
   const handleFilter = () => { setPage(1); fetchSales(); };
   const handleClearFilters = () => { setSearchFilter(''); setStartDateFilter(''); setEndDateFilter(''); setStatusFilter(''); setPaymentMethodFilter(''); setPage(1); fetchSales(true); };
   const toggleRow = (id: string) => setExpandedRow(expandedRow === id ? null : id);
-  const formatDate = (dateStr: string) => dateStr ? new Date(dateStr).toLocaleDateString('pt-BR') : '-';
-  const formatMoney = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
   const getProductNameFromEnumString = (enumKey: string) => { 
       // @ts-ignore 
       const id = ProductType[enumKey]; return ProductDescriptions[id] || enumKey; 
@@ -439,7 +460,6 @@ export function NewSale() {
                             </select>
                         </div>
                         
-                        {/* ALTERADO: Input da quantidade sem forçar Number() no onChange */}
                         <div className="md:col-span-1">
                             <label className="block text-sm font-semibold text-slate-700 mb-1">Qtd.</label>
                             <input 
