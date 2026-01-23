@@ -372,7 +372,7 @@ export function NewSale() {
         paymentMethod: Number(paymentMethod) 
       }]
     };
-
+        
     try {
       if (editingId) {
           await api.put('/api/sales', { ...basePayload, id: editingId, status: Number(saleStatus) });
