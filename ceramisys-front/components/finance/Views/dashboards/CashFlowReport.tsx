@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
-// 1. Adicionado o ícone 'X' aos imports
-import { BarChart3, Filter, Search, Download, Loader2, ArrowUpCircle, ArrowDownCircle, Wallet, Users, Tags, X } from 'lucide-react';
+// 1. Adicionado ChevronLeft e ChevronRight aos imports
+import { 
+  BarChart3, Filter, Search, Download, Loader2, ArrowUpCircle, 
+  ArrowDownCircle, Wallet, Users, Tags, X, ChevronLeft, ChevronRight 
+} from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { api } from '@/lib/api';
 
@@ -102,28 +105,17 @@ export function CashFlowReport() {
     fetchReport();
   };
 
-  // --- 2. NOVA FUNÇÃO: LIMPAR FILTROS ---
   const handleClearFilters = () => {
-    // Reseta datas para o padrão (mês atual)
     const { start, end } = getCurrentMonthDates();
     setStartDate(start);
     setEndDate(end);
-
-    // Limpa campos de texto
     setSearchTerm('');
     setSearchCategoryOrCustomer('');
-
-    // Limpa selects (voltando para a opção "Todos" que tem valor vazio)
     setPaymentMethod('');
     setLaunchType('');
-    
-    // Volta para a primeira página
     setPage(1);
-    
-    // Opcional: Se quiser que a limpeza já dispare a busca, descomente a linha abaixo.
-    // fetchReport(); 
+    // fetchReport(); // Descomente se quiser buscar automaticamente ao limpar
   };
-
 
   // --- EXPORTAR PDF ---
   const handleExportPdf = async () => {
@@ -246,11 +238,10 @@ export function CashFlowReport() {
              {/* Espaço Vazio para alinhamento */}
              <div className="hidden md:block"></div>
 
-             {/* --- 3. BOTÕES DE AÇÃO (LIMPAR E FILTRAR) --- */}
+             {/* --- BOTÕES DE AÇÃO --- */}
              <div className="flex items-center gap-2">
                 <Button 
                     variant="outline" 
-                    // Estilização para o botão de limpar ficar vermelho ao passar o mouse
                     className="px-3 border-slate-300 text-slate-500 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors"
                     title="Limpar todos os filtros"
                     onClick={handleClearFilters}
@@ -347,14 +338,28 @@ export function CashFlowReport() {
              </table>
          </div>
 
-         {/* Paginação */}
+         {/* Paginação estilizada (LARANJA CLARO) */}
          {reportData && (
              <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
                 <span className="text-sm text-slate-500">Total: <strong>{reportData.totalItems}</strong> lançamentos</span>
                 <div className="flex items-center gap-2">
-                    <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1 || loading} className="px-3 py-1 border border-slate-300 rounded hover:bg-white disabled:opacity-50 text-sm">Anterior</button>
-                    <span className="text-sm px-2 text-slate-700">{page} de {reportData.totalPages || 1}</span>
-                    <button onClick={() => setPage(p => (p < reportData.totalPages ? p + 1 : p))} disabled={page >= reportData.totalPages || loading} className="px-3 py-1 border border-slate-300 rounded hover:bg-white disabled:opacity-50 text-sm">Próximo</button>
+                    <button 
+                        onClick={() => setPage(p => Math.max(1, p - 1))} 
+                        disabled={page === 1 || loading} 
+                        className="p-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors shadow-sm"
+                    >
+                        <ChevronLeft size={16}/>
+                    </button>
+                    
+                    <span className="text-sm px-2 text-slate-600 font-medium">{page} de {reportData.totalPages || 1}</span>
+                    
+                    <button 
+                        onClick={() => setPage(p => (p < reportData.totalPages ? p + 1 : p))} 
+                        disabled={page >= reportData.totalPages || loading} 
+                        className="p-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors shadow-sm"
+                    >
+                        <ChevronRight size={16}/>
+                    </button>
                 </div>
              </div>
          )}

@@ -68,7 +68,7 @@ export function EmployeeList() {
 
   // --- BUSCA NA API ---
   // Adicionado parâmetro opcional 'overrideActiveOnly' para garantir atualização imediata do checkbox
-  const fetchEmployees = async (isReset = false, overrideActiveOnly?: boolean) => {
+ const fetchEmployees = async (isReset = false, overrideActiveOnly?: boolean) => {
     setTableLoading(true);
     try {
       let orderBy = 'Name';
@@ -77,20 +77,20 @@ export function EmployeeList() {
 
       if (currentSort === 'name_desc') ascending = false;
 
-      // Lógica para determinar o valor correto de ActiveOnly
-      // 1. Se foi resetado, é true.
-      // 2. Se veio um override (clique direto no check), usa o override.
-      // 3. Senão, usa o estado atual.
       let finalActiveOnly = activeOnly;
       if (overrideActiveOnly !== undefined) finalActiveOnly = overrideActiveOnly;
       if (isReset) finalActiveOnly = true;
 
       const params = {
-        NameDescriptionPage: isReset ? 1 : page,
+        // --- CORREÇÃO PRINCIPAL AQUI ---
+        // Antes estava "NameDescriptionPage", o que a API não entende.
+        // Mudamos para "Page" (padrão)
+        Page: isReset ? 1 : page, 
+        
         PageSize: pageSize,
         Search: (isReset ? '' : searchTerm) || undefined,
         Positions: (isReset || filterPosition === '') ? undefined : Number(filterPosition),
-        ActiveOnly: finalActiveOnly, // Usa o valor calculado
+        ActiveOnly: finalActiveOnly,
         OrderBy: orderBy,
         Ascending: ascending
       };
@@ -98,9 +98,12 @@ export function EmployeeList() {
       const response = await api.get('/api/employees/pages', { params });
       const data = response.data;
       
+      // --- CORREÇÃO DA CONTAGEM TOTAL ---
+      // Garante que o totalItems seja lido corretamente para habilitar o botão
       if (data.items) {
         setEmployees(data.items);
-        setTotalItems(data.totalCount || 0);
+        // Tenta ler totalItems OU totalCount (depende do seu backend)
+        setTotalItems(data.totalItems ?? data.totalCount ?? 0);
       } else if (Array.isArray(data)) {
         setEmployees(data);
         setTotalItems(data.length);
