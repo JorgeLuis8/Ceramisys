@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AdminSidebar } from './AdminSidebar';
 import { Menu } from 'lucide-react';
 
 // --- IMPORTAÇÃO DAS VIEWS ---
-// Ajuste os caminhos conforme sua estrutura de pastas real
 import { RegisterUser } from './views/RegisterUser';
 import { AdminDashboard } from './views/AdminDashboard'; 
 
@@ -22,8 +21,22 @@ export function AdminLayout({ onBackToMain }: AdminLayoutProps) {
   const [activeScreen, setActiveScreen] = useState('overview');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // ========================================================
+  // RESTAURA A TELA ATIVA DO localStorage AO CARREGAR
+  // ========================================================
+  useEffect(() => {
+    const savedScreen = localStorage.getItem('adminActiveScreen');
+    if (savedScreen) {
+      setActiveScreen(savedScreen);
+    }
+  }, []);
+
+  // ========================================================
+  // FUNÇÃO PARA MUDAR DE TELA E SALVAR NO localStorage
+  // ========================================================
   const handleNavigate = (screen: string) => {
     setActiveScreen(screen);
+    localStorage.setItem('adminActiveScreen', screen);
     setIsMobileMenuOpen(false);
   };
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FinanceSidebar } from './FinanceSidebar';
 import { Menu } from 'lucide-react';
 
@@ -25,7 +25,6 @@ import { RegisterStatement } from './Views/registrations/RegisterStatement';
 import { Transactions } from './Views/controls/Transactions';
 import { PendingTransactions } from './Views/controls/PendingTransactions';
 
-
 interface FinanceLayoutProps {
   onBackToMain: () => void;
 }
@@ -34,8 +33,22 @@ export function FinanceLayout({ onBackToMain }: FinanceLayoutProps) {
   const [activeScreen, setActiveScreen] = useState('home');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // ========================================================
+  // RESTAURA A TELA ATIVA DO localStorage AO CARREGAR
+  // ========================================================
+  useEffect(() => {
+    const savedScreen = localStorage.getItem('financeActiveScreen');
+    if (savedScreen) {
+      setActiveScreen(savedScreen);
+    }
+  }, []);
+
+  // ========================================================
+  // FUNÇÃO PARA MUDAR DE TELA E SALVAR NO localStorage
+  // ========================================================
   const handleNavigate = (screen: string) => {
     setActiveScreen(screen);
+    localStorage.setItem('financeActiveScreen', screen);
     setIsMobileMenuOpen(false);
   };
 
