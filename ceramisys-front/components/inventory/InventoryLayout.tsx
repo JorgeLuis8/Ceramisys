@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { InventorySidebar } from './InventorySidebar';
 import { Menu } from 'lucide-react';
 
 // --- IMPORTAÇÃO DAS VIEWS ---
-// Certifique-se de que os arquivos existem na pasta 'views'
 import { DashboardHome } from './views/dashboards/DashboardHome';
 import { ProductList } from './views/registrations/ProductList';
 import { StockIn } from './views/controls/StockIn';
@@ -28,9 +27,22 @@ export function InventoryLayout({ onBackToMain }: InventoryLayoutProps) {
   const [activeScreen, setActiveScreen] = useState('home');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Função para mudar de tela e fechar o menu no mobile automaticamente
+  // ========================================================
+  // RESTAURA A TELA ATIVA DO localStorage AO CARREGAR
+  // ========================================================
+  useEffect(() => {
+    const savedScreen = localStorage.getItem('inventoryActiveScreen');
+    if (savedScreen) {
+      setActiveScreen(savedScreen);
+    }
+  }, []);
+
+  // ========================================================
+  // FUNÇÃO PARA MUDAR DE TELA E SALVAR NO localStorage
+  // ========================================================
   const handleNavigate = (screen: string) => {
     setActiveScreen(screen);
+    localStorage.setItem('inventoryActiveScreen', screen);
     setIsMobileMenuOpen(false);
   };
 

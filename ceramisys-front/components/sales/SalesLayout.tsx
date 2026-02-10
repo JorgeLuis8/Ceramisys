@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SalesSidebar } from './SalesSidebar';
 import { Menu } from 'lucide-react';
 
@@ -18,8 +18,22 @@ export function SalesLayout({ onBackToMain }: SalesLayoutProps) {
   const [activeScreen, setActiveScreen] = useState('home');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // ========================================================
+  // RESTAURA A TELA ATIVA DO localStorage AO CARREGAR
+  // ========================================================
+  useEffect(() => {
+    const savedScreen = localStorage.getItem('salesActiveScreen');
+    if (savedScreen) {
+      setActiveScreen(savedScreen);
+    }
+  }, []);
+
+  // ========================================================
+  // FUNÇÃO PARA MUDAR DE TELA E SALVAR NO localStorage
+  // ========================================================
   const handleNavigate = (screen: string) => {
     setActiveScreen(screen);
+    localStorage.setItem('salesActiveScreen', screen);
     setIsMobileMenuOpen(false);
   };
 

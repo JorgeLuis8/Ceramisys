@@ -175,6 +175,14 @@ export default function DashboardPage() {
   const [userRole, setUserRole] = useState('');
   const [userInitials, setUserInitials] = useState('');
 
+  // ========================================================
+  // FUNÇÃO PARA ATUALIZAR O MÓDULO ATIVO E SALVAR NO localStorage
+  // ========================================================
+  const handleChangeModule = (module: string) => {
+    setActiveModule(module);
+    localStorage.setItem('activeModule', module);
+  };
+
   useEffect(() => {
     const checkAuth = () => {
       const token = Cookies.get('auth_token');
@@ -212,6 +220,14 @@ export default function DashboardPage() {
             setUserInitials('ER');
         }
 
+        // ========================================================
+        // RESTAURA O MÓDULO ATIVO DO localStorage
+        // ========================================================
+        const savedModule = localStorage.getItem('activeModule');
+        if (savedModule) {
+          setActiveModule(savedModule);
+        }
+
         setIsLoading(false);
       }
     };
@@ -238,15 +254,15 @@ export default function DashboardPage() {
 
   // --- ROTEAMENTO DOS MÓDULOS DE TELA CHEIA ---
   // Estes retornam um layout próprio, substituindo a sidebar principal
-  if (activeModule === 'inventory') return <InventoryLayout onBackToMain={() => setActiveModule('overview')} />;
-  if (activeModule === 'sales') return <SalesLayout onBackToMain={() => setActiveModule('overview')} />;
-  if (activeModule === 'finance') return <FinanceLayout onBackToMain={() => setActiveModule('overview')} />;
+  if (activeModule === 'inventory') return <InventoryLayout onBackToMain={() => handleChangeModule('overview')} />;
+  if (activeModule === 'sales') return <SalesLayout onBackToMain={() => handleChangeModule('overview')} />;
+  if (activeModule === 'finance') return <FinanceLayout onBackToMain={() => handleChangeModule('overview')} />;
   
   // --- MÓDULO ADMINISTRATIVO ---
   // Se for admin, carrega o layout administrativo completo
   if (activeModule === 'admin' && userRole === 'Admin') {
       // @ts-ignore: Ignorando erro de tipagem até que AdminLayoutProps seja atualizado no componente filho
-      return <AdminLayout onBackToMain={() => setActiveModule('overview')} />;
+      return <AdminLayout onBackToMain={() => handleChangeModule('overview')} />;
   }
 
   // Função para título dinâmico
@@ -263,7 +279,7 @@ export default function DashboardPage() {
       {/* SIDEBAR PADRÃO (Para visão geral) */}
       <Sidebar 
         activeSection={activeModule} 
-        onChangeSection={setActiveModule} 
+        onChangeSection={handleChangeModule}
         isOpen={isSidebarOpen} 
         toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} 
       />
