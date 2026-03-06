@@ -80,25 +80,25 @@ const OverviewLayout = () => {
   };
 
   return (
-    <div className="space-y-8 animate-fade-in pb-12">
+    <div className="space-y-6 md:space-y-8 animate-fade-in pb-12">
       
       {/* BANNER SUPERIOR */}
-      <div className="relative w-full min-h-[320px] rounded-3xl overflow-hidden bg-white border border-gray-100 shadow-sm flex flex-col items-center justify-center text-center p-8 md:p-12 transition-all hover:shadow-md duration-500">
+      <div className="relative w-full min-h-[240px] sm:min-h-[280px] md:min-h-[320px] rounded-2xl md:rounded-3xl overflow-hidden bg-white border border-gray-100 shadow-sm flex flex-col items-center justify-center text-center p-6 sm:p-8 md:p-12 transition-all hover:shadow-md duration-500">
         <div className="absolute top-[-50%] left-[-10%] w-96 h-96 bg-orange-100/40 rounded-full blur-3xl opacity-60 pointer-events-none animate-pulse"></div>
         <div className="absolute bottom-[-50%] right-[-10%] w-96 h-96 bg-gray-100/40 rounded-full blur-3xl opacity-60 pointer-events-none animate-pulse delay-700"></div>
 
         <div className="relative z-10 flex flex-col items-center animate-float">
-          <div className="w-32 h-32 md:w-40 md:h-40 relative mb-6 transition-transform hover:scale-105 duration-300">
+          <div className="w-20 h-20 sm:w-28 sm:h-28 md:w-40 md:h-40 relative mb-4 md:mb-6 transition-transform hover:scale-105 duration-300">
              <Image src="/icons/logo.png" alt="Logo CeramiSys" fill className="object-contain drop-shadow-xl" priority />
           </div>
-          <h1 className="text-4xl md:text-6xl font-black tracking-tight text-gray-900 mb-4">
+          <h1 className="text-3xl sm:text-4xl md:text-6xl font-black tracking-tight text-gray-900 mb-3 md:mb-4">
             Cerâmica<span className="text-orange-600">Canelas</span>
           </h1>
-          <p className="text-lg md:text-xl text-gray-500 max-w-2xl font-medium leading-relaxed px-4">
+          <p className="text-base sm:text-lg md:text-xl text-gray-500 max-w-2xl font-medium leading-relaxed px-2 sm:px-4">
             Sistema Inteligente para Gestão de Indústrias Cerâmicas
           </p>
-          <div className="mt-8 flex gap-3">
-             <span className="px-5 py-2 bg-orange-50 text-orange-700 text-xs md:text-sm font-bold uppercase tracking-wide rounded-full border border-orange-100 shadow-sm select-none">
+          <div className="mt-5 md:mt-8 flex gap-3">
+             <span className="px-4 sm:px-5 py-2 bg-orange-50 text-orange-700 text-xs md:text-sm font-bold uppercase tracking-wide rounded-full border border-orange-100 shadow-sm select-none">
                Painel Administrativo
              </span>
           </div>
@@ -106,14 +106,14 @@ const OverviewLayout = () => {
       </div>
 
       {/* CARDS DOS MÓDULOS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
         {modules.map((mod) => {
           const colors = colorMap[mod.color as keyof typeof colorMap];
           return (
             <div 
                 key={mod.id} 
                 className={`
-                  flex flex-col bg-white rounded-3xl border-2 ${colors.border} shadow-sm p-6 md:p-8 
+                  flex flex-col bg-white rounded-2xl md:rounded-3xl border-2 ${colors.border} shadow-sm p-5 sm:p-6 md:p-8 
                   relative overflow-hidden cursor-default group
                   transition-all duration-300 ease-out
                   hover:shadow-2xl hover:-translate-y-2 hover:scale-[1.02] ${colors.hoverBorder}
@@ -124,14 +124,14 @@ const OverviewLayout = () => {
               </div>
 
               <div className="relative z-10 flex flex-col h-full">
-                <div className={`w-14 h-14 md:w-16 md:h-16 ${colors.iconBg} rounded-2xl flex items-center justify-center mb-6 shadow-sm relative shrink-0 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3`}>
-                  <div className="w-8 h-8 md:w-10 md:h-10 relative">
+                <div className={`w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 ${colors.iconBg} rounded-2xl flex items-center justify-center mb-4 md:mb-6 shadow-sm relative shrink-0 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3`}>
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 relative">
                     <Image src={mod.imageSrc} alt={mod.title} fill className="object-contain" />
                   </div>
                 </div>
                 
-                <h3 className="text-2xl font-bold text-gray-900 mb-2 group-hover:text-orange-600 transition-colors">{mod.title}</h3>
-                <p className="text-gray-500 text-sm mb-6 min-h-[40px] md:min-h-[60px] leading-relaxed">{mod.longDescription}</p>
+                <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 group-hover:text-orange-600 transition-colors">{mod.title}</h3>
+                <p className="text-gray-500 text-sm mb-4 md:mb-6 leading-relaxed">{mod.longDescription}</p>
                 
                 <div className={`w-full py-3 rounded-xl text-sm font-bold border-2 transition-colors mt-auto text-center select-none ${mod.color === 'orange' ? 'border-orange-100 bg-orange-50 text-orange-700' : 'border-gray-100 bg-gray-50 text-gray-600 group-hover:bg-gray-100'}`}>
                   Módulo Disponível
@@ -143,15 +143,15 @@ const OverviewLayout = () => {
       </div>
 
       {/* RODAPÉ INFORMATIVO */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {resources.map((res, idx) => (
-          <div key={idx} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 transition-all duration-300 hover:border-orange-200 hover:shadow-md hover:-translate-y-1">
-            <div className="p-3 bg-gray-50 rounded-xl relative w-12 h-12 shrink-0">
+          <div key={idx} className="bg-white p-4 sm:p-5 rounded-xl sm:rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3 sm:gap-4 transition-all duration-300 hover:border-orange-200 hover:shadow-md hover:-translate-y-1">
+            <div className="p-2 sm:p-3 bg-gray-50 rounded-xl relative w-10 h-10 sm:w-12 sm:h-12 shrink-0">
               <Image src={res.imageSrc} alt={res.title} fill className="object-contain p-1 opacity-70" />
             </div>
-            <div>
-              <p className="text-[10px] md:text-xs text-gray-400 font-bold uppercase tracking-wider">{res.title}</p>
-              <p className="text-sm md:text-base font-bold text-gray-800">{res.value}</p>
+            <div className="min-w-0">
+              <p className="text-[9px] sm:text-[10px] md:text-xs text-gray-400 font-bold uppercase tracking-wider truncate">{res.title}</p>
+              <p className="text-xs sm:text-sm md:text-base font-bold text-gray-800 truncate">{res.value}</p>
             </div>
           </div>
         ))}
@@ -253,13 +253,11 @@ export default function DashboardPage() {
   }
 
   // --- ROTEAMENTO DOS MÓDULOS DE TELA CHEIA ---
-  // Estes retornam um layout próprio, substituindo a sidebar principal
   if (activeModule === 'inventory') return <InventoryLayout onBackToMain={() => handleChangeModule('overview')} />;
   if (activeModule === 'sales') return <SalesLayout onBackToMain={() => handleChangeModule('overview')} />;
   if (activeModule === 'finance') return <FinanceLayout onBackToMain={() => handleChangeModule('overview')} />;
   
   // --- MÓDULO ADMINISTRATIVO ---
-  // Se for admin, carrega o layout administrativo completo
   if (activeModule === 'admin' && userRole === 'Admin') {
       // @ts-ignore: Ignorando erro de tipagem até que AdminLayoutProps seja atualizado no componente filho
       return <AdminLayout onBackToMain={() => handleChangeModule('overview')} />;
@@ -284,24 +282,36 @@ export default function DashboardPage() {
         toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} 
       />
 
-      <main className={`flex-1 flex flex-col h-screen transition-all duration-300 ease-in-out ${isSidebarOpen ? 'md:ml-64' : 'md:ml-20'} ml-0`}>
+      {/* OVERLAY para fechar sidebar no mobile */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/30 z-30 md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      <main className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ease-in-out ${isSidebarOpen ? 'md:ml-64' : 'md:ml-20'} ml-0`}>
         
         {/* --- HEADER --- */}
-        <header className="h-20 bg-white/90 backdrop-blur-sm border-b border-gray-200 flex items-center justify-between px-6 md:px-8 sticky top-0 z-40 shadow-sm">
+        <header className="h-16 md:h-20 bg-white/90 backdrop-blur-sm border-b border-gray-200 flex items-center justify-between px-4 md:px-8 sticky top-0 z-40 shadow-sm">
            
-           <div className="flex items-center gap-4">
-             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg md:hidden">
-               <Menu size={24} />
+           <div className="flex items-center gap-3 md:gap-4 min-w-0">
+             {/* Botão hamburguer visível em TODAS as telas */}
+             <button
+               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+               className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg shrink-0"
+             >
+               <Menu size={22} />
              </button>
-             <h1 className="text-xl md:text-2xl font-bold text-gray-800 capitalize truncate">
+             <h1 className="text-lg md:text-2xl font-bold text-gray-800 capitalize truncate">
                {getHeaderTitle()}
              </h1>
            </div>
            
            {/* ÁREA DO USUÁRIO */}
-           <div className="flex items-center gap-4">
-              <div className="flex flex-col items-end mr-2 hidden md:flex">
-                <span className="text-sm font-bold text-gray-700">
+           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+              <div className="flex flex-col items-end mr-1 sm:mr-2 hidden sm:flex">
+                <span className="text-sm font-bold text-gray-700 truncate max-w-[120px] md:max-w-none">
                     {userName}
                 </span>
                 <span className="text-xs text-gray-500">
@@ -309,14 +319,14 @@ export default function DashboardPage() {
                 </span>
               </div>
               
-              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-orange-500 to-orange-400 text-white flex items-center justify-center font-bold shadow-md border-2 border-white cursor-pointer shrink-0 hover:scale-105 transition-transform">
+              <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-tr from-orange-500 to-orange-400 text-white flex items-center justify-center font-bold shadow-md border-2 border-white cursor-pointer shrink-0 hover:scale-105 transition-transform text-sm">
                 {userInitials}
               </div>
            </div>
         </header>
 
         {/* CONTEÚDO PRINCIPAL (DASHBOARD GERAL) */}
-        <div className="flex-1 p-4 md:p-8 overflow-y-auto bg-[#f8f9fa] custom-scrollbar pb-20">
+        <div className="flex-1 p-3 sm:p-4 md:p-8 overflow-y-auto bg-[#f8f9fa] custom-scrollbar pb-20">
            {activeModule === 'overview' && <OverviewLayout />}
         </div>
 
