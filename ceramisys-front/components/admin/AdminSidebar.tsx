@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   LayoutDashboard, Users, ShieldCheck, Settings, FileText, 
-  LogOut, X, Server, Lock 
+  LogOut, X, Server 
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -17,19 +17,18 @@ export function AdminSidebar({ currentScreen, onNavigate, onBackToMain, onCloseM
     const isActive = currentScreen === screenName;
     return `w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 group ${
       isActive 
-        ? 'bg-orange-50 text-orange-600 border-r-4 border-orange-500' 
-        : 'text-gray-600 hover:bg-gray-50 hover:text-orange-500'
+        ? 'bg-gray-100 text-gray-800 border-r-4 border-gray-700' 
+        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
     }`;
   };
 
   return (
     <div className="flex flex-col h-full border-r border-gray-200 bg-white">
-      
+
       {/* Cabeçalho */}
       <div className="p-6 border-b border-gray-100 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          {/* Ícone diferente para Admin (fundo cinza escuro ou roxo, por exemplo, ou manter laranja) */}
-          <div className="w-8 h-8 bg-gray-800 rounded-lg flex items-center justify-center text-white font-bold shadow-sm">
+          <div className="w-8 h-8 bg-gradient-to-br from-gray-700 to-gray-900 rounded-lg flex items-center justify-center text-white font-bold shadow-sm">
             S
           </div>
           <span className="text-lg font-bold text-gray-800">Sistema</span>
@@ -42,8 +41,8 @@ export function AdminSidebar({ currentScreen, onNavigate, onBackToMain, onCloseM
 
       {/* Navegação Scrollável */}
       <nav className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
-        
-        {/* DASHBOARD */}
+
+        {/* PAINEL */}
         <div className="space-y-1">
           <p className="px-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Painel</p>
           <button onClick={() => onNavigate('overview')} className={getButtonClass('overview')}>
@@ -51,7 +50,7 @@ export function AdminSidebar({ currentScreen, onNavigate, onBackToMain, onCloseM
           </button>
         </div>
 
-        {/* GESTÃO DE ACESSOS */}
+        {/* CONTROLE DE ACESSO */}
         <div className="space-y-1">
           <p className="px-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Controle de Acesso</p>
           <button onClick={() => onNavigate('users')} className={getButtonClass('users')}>
@@ -62,7 +61,7 @@ export function AdminSidebar({ currentScreen, onNavigate, onBackToMain, onCloseM
           </button>
         </div>
 
-        {/* CONFIGURAÇÕES TÉCNICAS */}
+        {/* SISTEMA */}
         <div className="space-y-1">
           <p className="px-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Sistema</p>
           <button onClick={() => onNavigate('settings')} className={getButtonClass('settings')}>
@@ -71,7 +70,7 @@ export function AdminSidebar({ currentScreen, onNavigate, onBackToMain, onCloseM
           <button onClick={() => onNavigate('logs')} className={getButtonClass('logs')}>
             <FileText size={18} /> <span>Logs de Auditoria</span>
           </button>
-           <button onClick={() => onNavigate('database')} className={getButtonClass('database')}>
+          <button onClick={() => onNavigate('database')} className={getButtonClass('database')}>
             <Server size={18} /> <span>Backup & Banco</span>
           </button>
         </div>
@@ -85,7 +84,7 @@ export function AdminSidebar({ currentScreen, onNavigate, onBackToMain, onCloseM
           className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm text-gray-600 bg-gray-50 hover:bg-red-50 hover:text-red-600 hover:shadow-sm transition-all"
         >
           <LogOut size={18} className="rotate-180" />
-          <span>Sair do Admin</span>
+          <span>Sair do Módulo</span>
         </button>
       </div>
     </div>
