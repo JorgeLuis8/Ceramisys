@@ -97,7 +97,7 @@ export function Sidebar({
               <div className="relative w-10 h-10">
                  <Image src="/icons/logo.png" alt="Logo" fill className="object-contain" />
               </div>
-              {isOpen && <span className="ml-3 font-bold text-gray-800 text-lg animate-fade-in">CeramiSys</span>}
+              {isOpen && <span className="ml-3 font-bold text-gray-800 text-lg animate-fade-in">Cerâmica Canelas</span>}
             </>
           )}
           <button onClick={toggleSidebar} className="md:hidden absolute right-4 text-gray-500 hover:text-red-500"><X size={20} /></button>
