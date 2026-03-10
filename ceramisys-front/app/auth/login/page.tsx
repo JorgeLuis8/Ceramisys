@@ -261,13 +261,6 @@ export default function LoginPage() {
                   <span className="px-4 text-sm text-gray-400 bg-white font-medium">ou</span>
                 </div>
               </div>
-
-              <p className="text-center text-base text-gray-600">
-                Não tem uma conta?{' '}
-                <Link href="/auth/register" className="font-bold text-orange-600 hover:text-orange-700 transition-colors">
-                  Criar conta
-                </Link>
-              </p>
             </form>
           </div>
         </div>
