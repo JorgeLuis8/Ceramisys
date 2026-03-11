@@ -255,11 +255,8 @@ export default function LoginPage() {
 
               <div className="relative my-8">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-200"></div>
                 </div>
-                <div className="relative flex justify-center">
-                  <span className="px-4 text-sm text-gray-400 bg-white font-medium">ou</span>
-                </div>
+                
               </div>
             </form>
           </div>
