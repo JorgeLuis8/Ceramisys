@@ -192,7 +192,7 @@ export default function LoginPage() {
                     Senha
                   </label>
                   <Link href="/auth/forgot-password" className="text-xs font-bold text-orange-600 hover:text-orange-700 uppercase tracking-wide transition-colors">
-                    Esqueceu?
+                    Esqueceu a senha?
                   </Link>
                 </div>
                 
