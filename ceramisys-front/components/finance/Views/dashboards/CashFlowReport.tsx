@@ -18,18 +18,24 @@ const LaunchTypeDescriptions: Record<number, string> = {
 };
 
 const formatMoney = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
-const formatDate = (dateStr: string) => dateStr ? new Date(dateStr).toLocaleDateString('pt-BR') : '-';
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return '-';
 
-const getCurrentMonthDates = () => {
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    return {
-        start: firstDay.toISOString().split('T')[0],
-        end: lastDay.toISOString().split('T')[0]
-    };
+  const dateOnly = dateStr.split('T')[0]; // garante só yyyy-MM-dd
+  const [year, month, day] = dateOnly.split('-').map(Number);
+
+  return new Date(year, month - 1, day).toLocaleDateString('pt-BR');
 };
+const getCurrentMonthDates = () => {
+  const now = new Date();
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
+  return {
+    start: formatInputDate(firstDay),
+    end: formatInputDate(lastDay),
+  };
+};
 // --- INTERFACES ---
 interface CashFlowItem {
   launchDate: string;
