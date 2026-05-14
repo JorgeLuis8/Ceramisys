@@ -32,8 +32,8 @@ const getCurrentMonthDates = () => {
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
   return {
-    start: formatInputDate(firstDay),
-    end: formatInputDate(lastDay),
+    start: formatDate(firstDay),       // Corrigido
+    end: formatDate(lastDay),          // Corrigido
   };
 };
 // --- INTERFACES ---
